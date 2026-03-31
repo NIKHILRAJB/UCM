@@ -110,7 +110,10 @@
     </div>
   </div>
 
-  <!-- ===== SIGN OUT CONFIRMATION OVERLAY ===== -->
+
+  <!-- ══════════════════════════════════════════
+       OVERLAY: Sign Out Confirmation
+       ══════════════════════════════════════════ -->
   <div class="overlay hidden" id="signout-overlay">
     <div class="overlay-card">
       <p style="font-size:1.1rem; font-weight:700;">Sign Out?</p>
@@ -118,17 +121,38 @@
         You will be returned to the login screen.
       </p>
       <div class="overlay-actions">
-        <button class="btn-primary"
-                
-                onclick="doSignOut()">Yes </button>
-        <button class="btn-secondary"
-                
-                onclick="closeSignOutOverlay()">Cancel</button>
+        <button class="btn-primary" onclick="doSignOut()">Yes</button>
+        <button class="btn-secondary" onclick="closeSignOutOverlay()">Cancel</button>
       </div>
     </div>
   </div>
 
-  <!-- ===== SCRIPTS ===== -->
+
+  <!-- ══════════════════════════════════════════
+       OVERLAY: No Save Data (Multi-Device)
+       ══════════════════════════════════════════ -->
+  <div class="overlay hidden" id="no-save-overlay">
+    <div class="overlay-card">
+      <div style="font-size:2rem; margin-bottom:4px;">👋</div>
+      <p id="no-save-title"
+         style="font-size:1.1rem; font-weight:800; color:var(--brown-dark);">
+        Welcome back!
+      </p>
+      <p style="font-size:0.88rem; color:#666666; margin-top:6px; line-height:1.6;">
+        No save data found on this device.<br/>
+        Your progress is saved on your original device.<br/><br/>
+        You can start a new game here.
+      </p>
+      <div class="overlay-actions" style="justify-content:center;">
+        <button class="btn-primary" onclick="closeNoSaveOverlay()">
+          OK — Start Fresh
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Scripts -->
   <script src="js/menu.js" type="module"></script>
 
 </body>

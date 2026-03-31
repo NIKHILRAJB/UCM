@@ -5,7 +5,8 @@ import {
   signOut,
   updatePassword,
   reauthenticateWithCredential,
-  EmailAuthProvider
+  EmailAuthProvider,
+  deleteUser
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // ─── Firebase Init ─────────────────────────────────────────────
@@ -27,7 +28,7 @@ onAuthStateChanged(auth, (user) => {
     window.location.href = 'auth.html';
     return;
   }
-  const name = user.displayName || user.email.split('@')[0];
+  const name    = user.displayName || user.email.split('@')[0];
   const nameEl  = document.getElementById('acc-name');
   const emailEl = document.getElementById('acc-email');
   if (nameEl)  nameEl.textContent  = name;
@@ -78,7 +79,12 @@ window.doReset = function() {
   document.getElementById('reset-state-loading').classList.remove('hidden');
 
   setTimeout(() => {
-    localStorage.clear();
+    const uid = auth.currentUser?.uid;
+    if (uid) {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith(`UCM_${uid}_`))
+        .forEach(k => localStorage.removeItem(k));
+    }
     document.getElementById('reset-state-loading').classList.add('hidden');
     document.getElementById('reset-state-success').classList.remove('hidden');
   }, 2000);
@@ -114,7 +120,6 @@ window.doChangePassword = async function() {
     errEl.classList.remove('hidden');
     return;
   }
-
   errEl.classList.add('hidden');
 
   try {
@@ -122,18 +127,78 @@ window.doChangePassword = async function() {
     const credential = EmailAuthProvider.credential(user.email, pwCurrent);
     await reauthenticateWithCredential(user, credential);
     await updatePassword(user, pwNew);
-
     window.closeModal('modal-change-pw');
     showToast('✅ Password updated successfully!');
-
   } catch (e) {
     console.error('Change password failed:', e.message);
-    if (e.code === 'auth/wrong-password') {
+    if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
       errEl.textContent = 'Current password is incorrect.';
     } else if (e.code === 'auth/weak-password') {
       errEl.textContent = 'New password is too weak.';
     } else {
       errEl.textContent = 'Failed to update. Try again.';
+    }
+    errEl.classList.remove('hidden');
+  }
+};
+
+// ─── Delete Account ────────────────────────────────────────────
+window.openDeleteModal = function() {
+  document.getElementById('delete-state-confirm').classList.remove('hidden');
+  document.getElementById('delete-state-reauth').classList.add('hidden');
+  document.getElementById('delete-state-loading').classList.add('hidden');
+  document.getElementById('delete-pw').value = '';
+  document.getElementById('delete-error').classList.add('hidden');
+  window.openModal('modal-delete-account');
+};
+
+window.showDeleteReauth = function() {
+  document.getElementById('delete-state-confirm').classList.add('hidden');
+  document.getElementById('delete-state-reauth').classList.remove('hidden');
+};
+
+window.doDeleteAccount = async function() {
+  const pw    = document.getElementById('delete-pw').value;
+  const errEl = document.getElementById('delete-error');
+
+  if (!pw) {
+    errEl.textContent = 'Password is required.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  // Show loading state
+  document.getElementById('delete-state-reauth').classList.add('hidden');
+  document.getElementById('delete-state-loading').classList.remove('hidden');
+
+  try {
+    const user       = auth.currentUser;
+    const uid        = user.uid;
+    const credential = EmailAuthProvider.credential(user.email, pw);
+
+    // Step 1 — Re-authenticate
+    await reauthenticateWithCredential(user, credential);
+
+    // Step 2 — Clear all localStorage data for this user
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(`UCM_${uid}_`) || k.startsWith('setting-'))
+      .forEach(k => localStorage.removeItem(k));
+
+    // Step 3 — Delete Firebase account
+    await deleteUser(user);
+
+    // Step 4 — Redirect
+    window.location.href = 'auth.html';
+
+  } catch (e) {
+    console.error('Delete account failed:', e.message);
+    // Go back to reauth step with error
+    document.getElementById('delete-state-loading').classList.add('hidden');
+    document.getElementById('delete-state-reauth').classList.remove('hidden');
+    if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
+      errEl.textContent = 'Incorrect password. Try again.';
+    } else {
+      errEl.textContent = 'Failed to delete account. Try again.';
     }
     errEl.classList.remove('hidden');
   }

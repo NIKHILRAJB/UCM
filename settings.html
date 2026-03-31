@@ -41,7 +41,6 @@
         <div class="settings-card">
           <p class="settings-card-title">⚙️ General Settings</p>
 
-          <!-- Commentary Speed -->
           <div class="settings-row">
             <div class="settings-row-left">
               <span class="settings-row-icon">🎙️</span>
@@ -57,7 +56,6 @@
             </select>
           </div>
 
-          <!-- Auto-Sim AI Innings -->
           <div class="settings-row">
             <div class="settings-row-left">
               <span class="settings-row-icon">🤖</span>
@@ -72,7 +70,6 @@
             </label>
           </div>
 
-          <!-- Debug Mode -->
           <div class="settings-row">
             <div class="settings-row-left">
               <span class="settings-row-icon">🐛</span>
@@ -87,7 +84,6 @@
             </label>
           </div>
 
-          <!-- Sound Effects -->
           <div class="settings-row">
             <div class="settings-row-left">
               <span class="settings-row-icon">🔊</span>
@@ -102,7 +98,6 @@
             </label>
           </div>
 
-          <!-- Vibration -->
           <div class="settings-row" style="border-bottom:none;">
             <div class="settings-row-left">
               <span class="settings-row-icon">📳</span>
@@ -127,7 +122,6 @@
         <div class="settings-card">
           <p class="settings-card-title">👤 Account Info</p>
 
-          <!-- Display Name — read only -->
           <div class="settings-row">
             <div class="settings-row-left">
               <span class="settings-row-icon">🏷️</span>
@@ -138,7 +132,6 @@
             </div>
           </div>
 
-          <!-- Email — read only -->
           <div class="settings-row">
             <div class="settings-row-left">
               <span class="settings-row-icon">📧</span>
@@ -149,7 +142,6 @@
             </div>
           </div>
 
-          <!-- Password -->
           <div class="settings-row">
             <div class="settings-row-left">
               <span class="settings-row-icon">🔒</span>
@@ -163,7 +155,6 @@
 
           <div class="settings-inner-divider"></div>
 
-          <!-- Sign Out -->
           <div class="settings-row" style="border-bottom:none;">
             <div class="settings-row-left">
               <span class="settings-row-icon">🚪</span>
@@ -186,6 +177,7 @@
           <p class="settings-card-title settings-danger-title">🗑️ Danger Zone</p>
           <p class="settings-danger-warning">⚠️ These actions are permanent and cannot be undone.</p>
 
+          <!-- Reset Game Data -->
           <button class="btn-reset-all" onclick="openResetModal()">
             🗑️ Reset Game Data
           </button>
@@ -201,6 +193,17 @@
             </ul>
           </div>
 
+          <!-- Divider -->
+          <div class="settings-inner-divider" style="margin:16px 0;"></div>
+
+          <!-- Delete Account -->
+          <button class="btn-delete-account" onclick="openDeleteModal()">
+            ☠️ Delete Account
+          </button>
+          <p class="settings-danger-warning" style="margin-top:10px;">
+            ⚠️ Deletes your Firebase account and all data permanently.
+          </p>
+
         </div>
       </div>
 
@@ -209,7 +212,7 @@
 
 
   <!-- ══════════════════════════════════════════
-       MODAL: Sign Out Confirmation
+       MODAL: Sign Out
        ══════════════════════════════════════════ -->
   <div class="smodal-overlay hidden" id="modal-signout">
     <div class="smodal-card">
@@ -230,7 +233,6 @@
   <div class="smodal-overlay hidden" id="modal-reset">
     <div class="smodal-card">
 
-      <!-- State 1: Confirm -->
       <div id="reset-state-confirm">
         <div class="smodal-icon">⚠️</div>
         <p class="smodal-title" style="color:var(--accent-red);">Reset All Data?</p>
@@ -244,7 +246,6 @@
         </div>
       </div>
 
-      <!-- State 2: Loading -->
       <div id="reset-state-loading" class="hidden">
         <div class="smodal-icon">⏳</div>
         <p class="smodal-title">Resetting...</p>
@@ -252,7 +253,6 @@
         <div class="smodal-spinner"></div>
       </div>
 
-      <!-- State 3: Success -->
       <div id="reset-state-success" class="hidden">
         <div class="smodal-icon">✅</div>
         <p class="smodal-title" style="color:var(--accent-green);">Reset Complete!</p>
@@ -289,6 +289,55 @@
         <button class="smodal-btn-cancel" onclick="closeModal('modal-change-pw')">Cancel</button>
         <button class="smodal-btn-primary" onclick="doChangePassword()">Update</button>
       </div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════
+       MODAL: Delete Account
+       ══════════════════════════════════════════ -->
+  <div class="smodal-overlay hidden" id="modal-delete-account">
+    <div class="smodal-card">
+
+      <!-- State 1: Warning -->
+      <div id="delete-state-confirm">
+        <div class="smodal-icon">☠️</div>
+        <p class="smodal-title" style="color:var(--accent-red);">Delete Account?</p>
+        <p class="smodal-desc">
+          This will <strong>permanently delete</strong> your account and
+          all saved game data. This action <strong>cannot be undone.</strong>
+        </p>
+        <div class="smodal-actions">
+          <button class="smodal-btn-cancel" onclick="closeModal('modal-delete-account')">Cancel</button>
+          <button class="smodal-btn-danger" onclick="showDeleteReauth()">Continue →</button>
+        </div>
+      </div>
+
+      <!-- State 2: Re-authenticate -->
+      <div id="delete-state-reauth" class="hidden">
+        <div class="smodal-icon">🔒</div>
+        <p class="smodal-title">Confirm Password</p>
+        <p class="smodal-desc">Enter your password to confirm account deletion.</p>
+        <div class="smodal-form">
+          <label class="smodal-label">Password</label>
+          <input type="password" class="smodal-input" id="delete-pw"
+                 placeholder="Enter your password" />
+          <p class="smodal-error hidden" id="delete-error">Incorrect password.</p>
+        </div>
+        <div class="smodal-actions">
+          <button class="smodal-btn-cancel" onclick="closeModal('modal-delete-account')">Cancel</button>
+          <button class="smodal-btn-danger" onclick="doDeleteAccount()">Delete Forever</button>
+        </div>
+      </div>
+
+      <!-- State 3: Loading -->
+      <div id="delete-state-loading" class="hidden">
+        <div class="smodal-icon">⏳</div>
+        <p class="smodal-title">Deleting Account...</p>
+        <p class="smodal-desc">Please wait, removing all your data.</p>
+        <div class="smodal-spinner"></div>
+      </div>
+
     </div>
   </div>
 

@@ -3,23 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="theme-color" content="#1A0D00" />
+  <meta name="theme-color" content="#FFBA00" />
   <title>Ultimate Cricket Manager</title>
   <link rel="icon" type="image/png" href="images/logo_mascot_round.png" />
   <link rel="apple-touch-icon" href="images/logo_mascot_round.png" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
-<body>
+<body id="loading-body">
 
-  <!-- ===== SCREEN: LOADING ===== -->
   <div id="screen-loading" class="screen active">
     <div class="loading-wrap">
+      
       <img src="images/logo_umc_full_lg_.png"
            alt="Ultimate Cricket Manager"
-           class="logo-full-img" />
+           class="logo-full-img"
+           onerror="this.style.display='none'" />
       <div class="progress-bar-wrap" id="progress-wrap">
         <div class="progress-bar" id="progress-bar"></div>
       </div>
@@ -28,489 +26,75 @@
     </div>
   </div>
 
-  <!-- ===== SCREEN: MAIN MENU ===== -->
-  <div id="screen-main-menu" class="screen">
-    <div class="menu-bg">
-      <img src="images/bg_main_menu.png"
-           alt="" class="menu-bg-img"
-           onerror="this.style.display='none'" />
-    </div>
-    <div class="menu-header">
-      <img src="images/logo_mascot_round.png"
-           alt="UCM Mascot" class="menu-mascot"
-           onerror="this.style.opacity='0'" />
-      <img src="images/logo_text.png"
-           alt="UCM" class="menu-logo-text"
-           onerror="this.outerHTML='<div class=\'menu-logo-fallback\'>UCM<span>Ultimate Cricket Manager</span></div>'" />
-    </div>
-    <div class="menu-grid">
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-      <button class="menu-card" onclick="showScreen('screen-mode-select')" data-mode="international">
-        <div class="menu-card-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="2" y1="12" x2="22" y2="12"/>
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-          </svg>
-        </div>
-        <span class="menu-card-label">International<br>Mode</span>
-      </button>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCsmoyzfLBxdACck8jkV245t8AAoDE7GN8",
+      authDomain: "ultimate-cricket-manager.firebaseapp.com",
+      projectId: "ultimate-cricket-manager",
+      storageBucket: "ultimate-cricket-manager.firebasestorage.app",
+      messagingSenderId: "939330999487",
+      appId: "1:939330999487:web:eeaa137fa6b104e18ea20a"
+    };
 
-      <button class="menu-card" onclick="showScreen('screen-mode-select')" data-mode="club">
-        <div class="menu-card-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-            <circle cx="9" cy="7" r="4"/>
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-          </svg>
-        </div>
-        <span class="menu-card-label">Club<br>Mode</span>
-      </button>
+    const app  = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
 
-      <button class="menu-card" onclick="showScreen('screen-friendly-home')">
-        <div class="menu-card-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-          </svg>
-        </div>
-        <span class="menu-card-label">Friendly<br>Mode</span>
-      </button>
+    const bar    = document.getElementById('progress-bar');
+    const status = document.getElementById('loading-status');
+    const btn    = document.getElementById('btn-start');
 
-      <button class="menu-card" onclick="showScreen('screen-hall-of-fame')">
-        <div class="menu-card-icon" style="color:#FFBA00">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
-            <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-            <path d="M4 22h16"/>
-            <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
-            <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
-            <path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/>
-          </svg>
-        </div>
-        <span class="menu-card-label">Hall Of<br>Fame</span>
-      </button>
+    function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-      <button class="menu-card" onclick="showScreen('screen-settings')">
-        <div class="menu-card-icon" style="color:#a78bfa">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </svg>
-        </div>
-        <span class="menu-card-label">Settings</span>
-      </button>
+    // Guaranteed step-by-step ~2.6s progress
+    async function runProgress() {
+      const steps = [
+        { pct: 12,  label: 'LOADING...',         ms: 300 },
+        { pct: 28,  label: 'LOADING...',         ms: 350 },
+        { pct: 45,  label: 'LOADING ASSETS...',  ms: 400 },
+        { pct: 60,  label: 'LOADING ASSETS...',  ms: 350 },
+        { pct: 74,  label: 'PREPARING GAME...',  ms: 400 },
+        { pct: 87,  label: 'ALMOST READY...',    ms: 350 },
+        { pct: 95,  label: 'ALMOST READY...',    ms: 250 },
+      ];
+      for (const s of steps) {
+        bar.style.width = s.pct + '%';
+        status.textContent = s.label;
+        await delay(s.ms);
+      }
+    }
 
-      <button class="menu-card" onclick="showScreen('screen-about')">
-        <div class="menu-card-icon" style="color:#93c5fd">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-        </div>
-        <span class="menu-card-label">About</span>
-      </button>
+    // Firebase auth check runs in parallel with progress
+    let authUser = null;
+    const authCheck = new Promise(resolve => {
+      onAuthStateChanged(auth, user => {
+        authUser = user;
+        resolve();
+      });
+    });
 
-    </div>
-  </div>
+    // Wait for BOTH progress + auth check to finish
+    Promise.all([runProgress(), authCheck]).then(async () => {
+      bar.style.width = '100%';
+      status.textContent = 'READY!';
+      await delay(300);
 
-  <!-- ===== SCREEN: ABOUT ===== -->
-  <div id="screen-about" class="screen">
-    <div class="screen-header">
-      <button class="btn-back" onclick="showScreen('screen-main-menu')">← Back</button>
-      <h2>About</h2>
-    </div>
-    <div class="about-wrap">
-      <div class="about-header-logo">
-        <img src="images/logo_mascot_round.png"
-             alt="UCM Mascot" class="about-mascot"
-             onerror="this.style.opacity='0'" />
-        <img src="images/logo_text.png"
-             alt="UCM" class="about-logo-text"
-             onerror="this.style.opacity='0'" />
-      </div>
-      <div class="about-card">
-        <div class="about-row">
-          <span class="about-label">Version</span>
-          <span class="about-value">v2.0</span>
-        </div>
-        <div class="about-row">
-          <span class="about-label">Developer</span>
-          <span class="about-value">— Coming Soon —</span>
-        </div>
-        <div class="about-row">
-          <span class="about-label">Studio</span>
-          <span class="about-value">— Coming Soon —</span>
-        </div>
-      </div>
-      <div class="about-card">
-        <p class="about-section-title">About the Game</p>
-        <p class="about-desc">
-          Ultimate Cricket Manager is a turn-based cricket management simulation.
-          Build your squad, dominate bilateral series, win ICC events,
-          climb through club divisions, and reach the Global Tier elite.
-        </p>
-      </div>
-      <div class="about-card">
-        <p class="about-section-title">Connect</p>
-        <div class="social-links">
-          <a class="social-btn" href="#" onclick="return false">
-            <span>📸</span> Instagram
-          </a>
-          <a class="social-btn" href="#" onclick="return false">
-            <span>▶️</span> YouTube
-          </a>
-          <a class="social-btn" href="#" onclick="return false">
-            <span>🐦</span> Twitter / X
-          </a>
-          <a class="social-btn" href="#" onclick="return false">
-            <span>💬</span> Discord
-          </a>
-        </div>
-        <p class="about-placeholder-note">* Social links will be added soon</p>
-      </div>
-      <p class="about-copyright">© 2025 Ultimate Cricket Manager. All rights reserved.</p>
-    </div>
-  </div>
+      // Show TAP TO PLAY button
+      status.classList.add('hidden');
+      btn.classList.remove('hidden');
 
-  <!-- ===== SCREEN: MODE SELECT ===== -->
-  <div id="screen-mode-select" class="screen">
-    <div class="screen-header">
-      <button class="btn-back" onclick="showScreen('screen-main-menu')">← Back</button>
-      <h2 id="mode-select-title">Select Your Team</h2>
-    </div>
-    <div class="mode-select-body">
-      <div class="country-grid" id="country-grid"></div>
-      <div class="mode-options">
-        <label>Difficulty</label>
-        <div class="btn-group" id="difficulty-selector">
-          <button class="btn-option active" data-val="easy">Easy</button>
-          <button class="btn-option" data-val="medium">Medium</button>
-          <button class="btn-option" data-val="hard">Hard</button>
-        </div>
-        <label>Career Slot</label>
-        <div class="save-slots" id="career-save-slots"></div>
-        <button class="btn-primary" id="btn-start-career">▶ Start Career</button>
-      </div>
-    </div>
-  </div>
+      // On tap — check auth and redirect
+      btn.addEventListener('click', () => {
+        if (authUser) {
+          window.location.href = 'menu.html';
+        } else {
+          window.location.href = 'auth.html';
+        }
+      });
+    });
+  </script>
 
-  <!-- ===== SCREEN: SQUAD ===== -->
-  <div id="screen-squad" class="screen">
-    <div class="screen-header">
-      <button class="btn-back" onclick="goBack()">← Back</button>
-      <h2>Squad Management</h2>
-      <span class="overseas-badge" id="overseas-counter">Overseas: 0/2</span>
-    </div>
-    <div class="squad-controls">
-      <button class="btn-tab active" onclick="sortSquad('ps')">Sort by PS</button>
-      <button class="btn-tab" onclick="sortSquad('age')">Sort by Age</button>
-      <button class="btn-tab" onclick="sortSquad('role')">Sort by Role</button>
-    </div>
-    <div class="table-wrap">
-      <table class="data-table" id="squad-table">
-        <thead>
-          <tr>
-            <th>Name</th><th>Role</th><th>Age</th>
-            <th>PS</th><th>Form</th><th>Fatigue</th><th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="squad-tbody"></tbody>
-      </table>
-    </div>
-    <div class="modal hidden" id="player-modal">
-      <div class="modal-card">
-        <button class="modal-close" onclick="closeModal('player-modal')">✕</button>
-        <h3 id="modal-player-name"></h3>
-        <div class="stat-grid" id="modal-stat-grid"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== SCREEN: LEAGUE TABLE ===== -->
-  <div id="screen-league-table" class="screen">
-    <div class="screen-header">
-      <button class="btn-back" onclick="goBack()">← Back</button>
-      <h2 id="league-table-title">League Table</h2>
-    </div>
-    <div class="table-wrap">
-      <table class="data-table" id="league-table">
-        <thead>
-          <tr>
-            <th>#</th><th>Team</th><th>P</th><th>W</th>
-            <th>L</th><th>T</th><th>Pts</th><th>NRR</th>
-          </tr>
-        </thead>
-        <tbody id="league-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- ===== SCREEN: FIXTURE CALENDAR ===== -->
-  <div id="screen-fixture-calendar" class="screen">
-    <div class="screen-header">
-      <button class="btn-back" onclick="goBack()">← Back</button>
-      <h2>Fixture Calendar</h2>
-      <span id="calendar-season-label" class="season-label">Season 2023</span>
-    </div>
-    <div class="calendar-nav">
-      <button onclick="calendarPrevMonth()">‹</button>
-      <span id="calendar-month-label">January</span>
-      <button onclick="calendarNextMonth()">›</button>
-    </div>
-    <div class="fixture-list" id="fixture-list"></div>
-  </div>
-
-  <!-- ===== SCREEN: CUP BRACKET ===== -->
-  <div id="screen-cup-bracket" class="screen">
-    <div class="screen-header">
-      <button class="btn-back" onclick="goBack()">← Back</button>
-      <h2 id="cup-title">Cup Bracket</h2>
-    </div>
-    <div class="bracket-wrap" id="bracket-wrap"></div>
-  </div>
-
-  <!-- ===== SCREEN: TRANSFER ===== -->
-  <div id="screen-transfer" class="screen">
-    <div class="screen-header">
-      <button class="btn-back" onclick="goBack()">← Back</button>
-      <h2>Transfer Market</h2>
-    </div>
-    <div class="transfer-search">
-      <input type="text" id="transfer-search-input" placeholder="Search player name..." />
-      <select id="transfer-role-filter">
-        <option value="">All Roles</option>
-        <option>Batter</option>
-        <option>Bowler</option>
-        <option>Allrounder</option>
-        <option>Wicketkeeper</option>
-      </select>
-    </div>
-    <div class="table-wrap">
-      <table class="data-table" id="transfer-table">
-        <thead>
-          <tr>
-            <th>Name</th><th>Role</th><th>Age</th>
-            <th>PS</th><th>Value</th><th>Wage/mo</th><th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="transfer-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- ===== SCREEN: FINANCE ===== -->
-  <div id="screen-finance" class="screen">
-    <div class="screen-header">
-      <button class="btn-back" onclick="goBack()">← Back</button>
-      <h2>Club Finances</h2>
-    </div>
-    <div class="finance-balance" id="finance-balance">Balance: ₹0</div>
-    <div class="finance-grid" id="finance-grid"></div>
-    <div class="upgrade-section" id="upgrade-section"></div>
-    <div class="debt-warning hidden" id="debt-warning">
-      ⚠️ WARNING: Negative balance. 3 consecutive deficit seasons = club liquidated.
-    </div>
-  </div>
-
-  <!-- ===== SCREEN: MATCH ===== -->
-  <div id="screen-match" class="screen">
-    <div class="match-header">
-      <span id="match-team-a">Team A</span>
-      <span class="match-vs">vs</span>
-      <span id="match-team-b">Team B</span>
-    </div>
-    <div class="scoreboard">
-      <div class="score-main" id="score-main">0/0</div>
-      <div class="score-sub" id="score-sub">Overs: 0.0</div>
-      <div class="score-target hidden" id="score-target">Target: —</div>
-    </div>
-    <div class="batting-info" id="batting-info"></div>
-    <div class="bowling-info" id="bowling-info"></div>
-    <div class="commentary-box" id="commentary-box"></div>
-    <div class="match-controls">
-      <select id="field-preset-selector">
-        <option>Balanced</option>
-        <option>Attacking Slip Cordon</option>
-        <option>Standard Covers</option>
-        <option>Defensive Ring</option>
-        <option>Leg-side Trap</option>
-      </select>
-      <button class="btn-drs hidden" id="btn-drs">📺 Review (DRS)</button>
-      <button class="btn-primary" id="btn-next-ball">Next Ball ▶</button>
-      <button class="btn-secondary" id="btn-sim-over">Sim Over ⏩</button>
-      <button class="btn-secondary" id="btn-sim-innings">Sim Innings ⏭</button>
-    </div>
-  </div>
-
-  <!-- ===== SCREEN: POST-MATCH ===== -->
-  <div id="screen-post-match" class="screen">
-    <div class="screen-header">
-      <h2>Match Result</h2>
-    </div>
-    <div class="result-banner" id="result-banner">—</div>
-    <div class="scorecard-tabs">
-      <button class="btn-tab active" onclick="switchScorecard('batting')">Batting</button>
-      <button class="btn-tab" onclick="switchScorecard('bowling')">Bowling</button>
-    </div>
-    <div class="table-wrap">
-      <table class="data-table" id="scorecard-table">
-        <thead id="scorecard-head"></thead>
-        <tbody id="scorecard-tbody"></tbody>
-      </table>
-    </div>
-    <div class="mvp-card" id="mvp-card"></div>
-    <div style="padding:16px">
-      <button class="btn-primary" id="btn-post-match-continue">Continue →</button>
-    </div>
-  </div>
-
-  <!-- ===== SCREEN: SEASON SUMMARY ===== -->
-  <div id="screen-season-summary" class="screen">
-    <div class="screen-header">
-      <h2>Season Summary</h2>
-    </div>
-    <div id="season-summary-content"></div>
-    <div style="padding:16px">
-      <button class="btn-primary" onclick="startNextSeason()">Next Season →</button>
-    </div>
-  </div>
-
-  <!-- ===== SCREEN: HALL OF FAME ===== -->
-  <div id="screen-hall-of-fame" class="screen">
-    <div class="screen-header">
-      <button class="btn-back" onclick="goBack()">← Back</button>
-      <h2>🏆 Hall of Fame</h2>
-    </div>
-    <div id="hof-content"></div>
-    <div style="padding:16px">
-      <button class="btn-primary" onclick="showScreen('screen-main-menu')">Main Menu</button>
-    </div>
-  </div>
-
-  <!-- ===== SCREEN: FRIENDLY HOME ===== -->
-  <div id="screen-friendly-home" class="screen">
-    <div class="screen-header">
-      <button class="btn-back" onclick="showScreen('screen-main-menu')">← Back</button>
-      <h2>⚡ Friendly Match</h2>
-    </div>
-    <div class="save-slots-wrap" id="friendly-slots"></div>
-    <div style="padding:0 16px 16px">
-      <button class="btn-primary" id="btn-new-friendly">+ New Friendly</button>
-    </div>
-    <div class="setup-panel hidden" id="friendly-setup-panel">
-      <label>Your Team</label>
-      <select id="friendly-team-a"></select>
-      <label>Opponent</label>
-      <select id="friendly-team-b"></select>
-      <label>Format</label>
-      <select id="friendly-overs">
-        <option value="5">BIZ (5 overs)</option>
-        <option value="10">T10 (10 overs)</option>
-        <option value="20" selected>T20 (20 overs)</option>
-        <option value="50">ODI (50 overs)</option>
-      </select>
-      <label>Difficulty</label>
-      <div class="btn-group" id="friendly-difficulty">
-        <button class="btn-option active" data-val="easy">Easy</button>
-        <button class="btn-option" data-val="medium">Medium</button>
-        <button class="btn-option" data-val="hard">Hard</button>
-      </div>
-      <label>Slot Name (max 6 chars)</label>
-      <input type="text" id="friendly-slot-name" maxlength="6" placeholder="e.g. IND01" />
-      <button class="btn-primary" id="btn-confirm-friendly">Confirm & Play ▶</button>
-    </div>
-  </div>
-
-  <!-- ===== SCREEN: ICC EVENT ===== -->
-  <div id="screen-icc-event" class="screen">
-    <div class="screen-header">
-      <button class="btn-back" onclick="goBack()">← Back</button>
-      <h2 id="icc-event-title">ICC Event</h2>
-    </div>
-    <div class="icc-groups" id="icc-groups"></div>
-    <div class="bracket-wrap" id="icc-bracket"></div>
-  </div>
-
-  <!-- ===== SCREEN: RANKINGS ===== -->
-  <div id="screen-rankings" class="screen">
-    <div class="screen-header">
-      <button class="btn-back" onclick="goBack()">← Back</button>
-      <h2>World Rankings</h2>
-    </div>
-    <div style="padding:12px 16px">
-      <div class="btn-group">
-        <button class="btn-option active" onclick="switchRankings('t20')">T20</button>
-        <button class="btn-option" onclick="switchRankings('odi')">ODI</button>
-        <button class="btn-option" onclick="switchRankings('persistent')">Career</button>
-      </div>
-    </div>
-    <div class="table-wrap">
-      <table class="data-table" id="rankings-table">
-        <thead>
-          <tr><th>#</th><th>Team</th><th>Points</th><th>Win%</th></tr>
-        </thead>
-        <tbody id="rankings-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- ===== SCREEN: SETTINGS ===== -->
-  <div id="screen-settings" class="screen">
-    <div class="screen-header">
-      <button class="btn-back" onclick="showScreen('screen-main-menu')">← Back</button>
-      <h2>⚙️ Settings</h2>
-    </div>
-    <div class="settings-list">
-      <div class="setting-row">
-        <label>Commentary Speed</label>
-        <select id="setting-commentary-speed">
-          <option value="fast">Fast</option>
-          <option value="normal" selected>Normal</option>
-          <option value="slow">Slow</option>
-        </select>
-      </div>
-      <div class="setting-row">
-        <label>Auto-Sim AI Innings</label>
-        <input type="checkbox" id="setting-autosim" />
-      </div>
-      <div class="setting-row">
-        <label>Debug Mode (show RNG seed)</label>
-        <input type="checkbox" id="setting-debug" />
-      </div>
-      <button class="btn-danger" onclick="confirmResetAll()">🗑️ Reset All Data</button>
-    </div>
-  </div>
-
-  <!-- ===== GLOBAL OVERLAY ===== -->
-  <div class="overlay hidden" id="global-overlay">
-    <div class="overlay-card">
-      <p id="overlay-message">Are you sure?</p>
-      <div style="display:flex;gap:10px;justify-content:center;margin-top:8px">
-        <button class="btn-primary" id="overlay-confirm"
-          style="width:auto;padding:10px 28px">Yes</button>
-        <button class="btn-secondary" id="overlay-cancel"
-          style="padding:10px 28px">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== SCRIPTS ===== -->
-  <script src="lib/sql-wasm.js"></script>
-  <script src="lib/seedrandom.js"></script>
-  <script src="data/seed_data.js"></script>
-  <script src="js/db.js"></script>
-  <script src="js/save_load.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/ps_engine.js"></script>
-  <script src="js/player_gen.js"></script>
-  <script src="js/match_engine.js"></script>
-  <script src="js/fatigue.js"></script>
-  <script src="js/ai_engine.js"></script>
-  <script src="js/fixture_gen.js"></script>
-  <script src="js/career_intl.js"></script>
-  <script src="js/career_club.js"></script>
-  <script src="js/finance.js"></script>
 </body>
 </html>

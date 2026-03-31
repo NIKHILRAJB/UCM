@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#FFFFFF" />
+  <title>Settings – UCM</title>
+  <link rel="icon" type="image/png" href="images/logo_mascot_round.png" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/settings.css" />
+</head>
+<body class="settings-page">
+
+  <div id="screen-settings" class="screen active">
+
+    <!-- ── Sticky Header ── -->
+    <div class="settings-header">
+      <button class="btn-back-icon" onclick="window.location.href='menu.html'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+             stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </button>
+      <div class="settings-header-center">
+        <span class="settings-header-icon">⚙️</span>
+        <h2>Settings</h2>
+      </div>
+      <div style="width:44px;"></div>
+    </div>
+
+    <!-- ── 3-Column Grid ── -->
+    <div class="settings-grid">
+
+      <!-- ════════════════════════════════
+           COLUMN 1 — General Settings
+           ════════════════════════════════ -->
+      <div class="settings-col">
+        <div class="settings-card">
+          <p class="settings-card-title">⚙️ General Settings</p>
+
+          <!-- Commentary Speed -->
+          <div class="settings-row">
+            <div class="settings-row-left">
+              <span class="settings-row-icon">🎙️</span>
+              <div>
+                <p class="settings-label">Commentary Speed</p>
+                <p class="settings-hint">How fast match commentary plays</p>
+              </div>
+            </div>
+            <select class="settings-select" id="setting-commentary-speed">
+              <option value="fast">Fast</option>
+              <option value="normal" selected>Normal</option>
+              <option value="slow">Slow</option>
+            </select>
+          </div>
+
+          <!-- Auto-Sim AI Innings -->
+          <div class="settings-row">
+            <div class="settings-row-left">
+              <span class="settings-row-icon">🤖</span>
+              <div>
+                <p class="settings-label">Auto-Sim AI Innings</p>
+                <p class="settings-hint">Skip AI batting automatically</p>
+              </div>
+            </div>
+            <label class="settings-toggle">
+              <input type="checkbox" id="setting-autosim" />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+
+          <!-- Debug Mode -->
+          <div class="settings-row">
+            <div class="settings-row-left">
+              <span class="settings-row-icon">🐛</span>
+              <div>
+                <p class="settings-label">Debug Mode</p>
+                <p class="settings-hint">Show RNG seed in match screen</p>
+              </div>
+            </div>
+            <label class="settings-toggle">
+              <input type="checkbox" id="setting-debug" />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+
+          <!-- Sound Effects -->
+          <div class="settings-row">
+            <div class="settings-row-left">
+              <span class="settings-row-icon">🔊</span>
+              <div>
+                <p class="settings-label">Sound Effects</p>
+                <p class="settings-hint">Play audio on events</p>
+              </div>
+            </div>
+            <label class="settings-toggle">
+              <input type="checkbox" id="setting-sound" />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+
+          <!-- Vibration -->
+          <div class="settings-row" style="border-bottom:none;">
+            <div class="settings-row-left">
+              <span class="settings-row-icon">📳</span>
+              <div>
+                <p class="settings-label">Vibration / Haptics</p>
+                <p class="settings-hint">Vibrate on wickets & boundaries</p>
+              </div>
+            </div>
+            <label class="settings-toggle">
+              <input type="checkbox" id="setting-haptics" />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════
+           COLUMN 2 — Account Info
+           ════════════════════════════════ -->
+      <div class="settings-col">
+        <div class="settings-card">
+          <p class="settings-card-title">👤 Account Info</p>
+
+          <!-- Display Name — read only -->
+          <div class="settings-row">
+            <div class="settings-row-left">
+              <span class="settings-row-icon">🏷️</span>
+              <div>
+                <p class="settings-label">Display Name</p>
+                <p class="settings-account-value" id="acc-name">—</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Email — read only -->
+          <div class="settings-row">
+            <div class="settings-row-left">
+              <span class="settings-row-icon">📧</span>
+              <div>
+                <p class="settings-label">Email</p>
+                <p class="settings-account-value" id="acc-email">—</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Password -->
+          <div class="settings-row">
+            <div class="settings-row-left">
+              <span class="settings-row-icon">🔒</span>
+              <div>
+                <p class="settings-label">Password</p>
+                <p class="settings-account-value">••••••••</p>
+              </div>
+            </div>
+            <button class="btn-change-pw" onclick="openChangePassword()">Change</button>
+          </div>
+
+          <div class="settings-inner-divider"></div>
+
+          <!-- Sign Out -->
+          <div class="settings-row" style="border-bottom:none;">
+            <div class="settings-row-left">
+              <span class="settings-row-icon">🚪</span>
+              <div>
+                <p class="settings-label">Sign Out</p>
+                <p class="settings-hint">Return to login screen</p>
+              </div>
+            </div>
+            <button class="btn-signout" onclick="openSignOutModal()">Sign Out</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════
+           COLUMN 3 — Danger Zone
+           ════════════════════════════════ -->
+      <div class="settings-col">
+        <div class="settings-card settings-card-danger">
+          <p class="settings-card-title settings-danger-title">🗑️ Danger Zone</p>
+          <p class="settings-danger-warning">⚠️ These actions are permanent and cannot be undone.</p>
+
+          <button class="btn-reset-all" onclick="openResetModal()">
+            🗑️ Reset Game Data
+          </button>
+
+          <div class="settings-reset-info">
+            <p class="settings-reset-info-title">ℹ️ What will be deleted:</p>
+            <ul class="settings-reset-list">
+              <li>All match history</li>
+              <li>Season standings & points</li>
+              <li>Player stats & records</li>
+              <li>Tournament progress</li>
+              <li>Career data</li>
+            </ul>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /settings-grid -->
+  </div><!-- /screen-settings -->
+
+
+  <!-- ══════════════════════════════════════════
+       MODAL: Sign Out Confirmation
+       ══════════════════════════════════════════ -->
+  <div class="smodal-overlay hidden" id="modal-signout">
+    <div class="smodal-card">
+      <div class="smodal-icon">🚪</div>
+      <p class="smodal-title">Sign Out?</p>
+      <p class="smodal-desc">You will be returned to the login screen.</p>
+      <div class="smodal-actions">
+        <button class="smodal-btn-cancel" onclick="closeModal('modal-signout')">Cancel</button>
+        <button class="smodal-btn-danger" onclick="doSignOut()">Yes, Sign Out</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════
+       MODAL: Reset Game Data
+       ══════════════════════════════════════════ -->
+  <div class="smodal-overlay hidden" id="modal-reset">
+    <div class="smodal-card">
+
+      <!-- State 1: Confirm -->
+      <div id="reset-state-confirm">
+        <div class="smodal-icon">⚠️</div>
+        <p class="smodal-title" style="color:var(--accent-red);">Reset All Data?</p>
+        <p class="smodal-desc">
+          This will permanently delete all your match history, stats, and career progress.
+          <strong>This cannot be undone.</strong>
+        </p>
+        <div class="smodal-actions">
+          <button class="smodal-btn-cancel" onclick="closeModal('modal-reset')">Cancel</button>
+          <button class="smodal-btn-danger" onclick="doReset()">Yes, Reset</button>
+        </div>
+      </div>
+
+      <!-- State 2: Loading -->
+      <div id="reset-state-loading" class="hidden">
+        <div class="smodal-icon">⏳</div>
+        <p class="smodal-title">Resetting...</p>
+        <p class="smodal-desc">Please wait, clearing your game data.</p>
+        <div class="smodal-spinner"></div>
+      </div>
+
+      <!-- State 3: Success -->
+      <div id="reset-state-success" class="hidden">
+        <div class="smodal-icon">✅</div>
+        <p class="smodal-title" style="color:var(--accent-green);">Reset Complete!</p>
+        <p class="smodal-desc">All your game data has been cleared successfully.</p>
+        <div class="smodal-actions">
+          <button class="smodal-btn-primary" onclick="closeModal('modal-reset')">Close</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════
+       MODAL: Change Password
+       ══════════════════════════════════════════ -->
+  <div class="smodal-overlay hidden" id="modal-change-pw">
+    <div class="smodal-card">
+      <div class="smodal-icon">🔒</div>
+      <p class="smodal-title">Change Password</p>
+      <div class="smodal-form">
+        <label class="smodal-label">Current Password</label>
+        <input type="password" class="smodal-input" id="pw-current"
+               placeholder="Enter current password" />
+        <label class="smodal-label">New Password</label>
+        <input type="password" class="smodal-input" id="pw-new"
+               placeholder="Enter new password" />
+        <label class="smodal-label">Confirm New Password</label>
+        <input type="password" class="smodal-input" id="pw-confirm"
+               placeholder="Confirm new password" />
+        <p class="smodal-error hidden" id="pw-error">Passwords do not match.</p>
+      </div>
+      <div class="smodal-actions">
+        <button class="smodal-btn-cancel" onclick="closeModal('modal-change-pw')">Cancel</button>
+        <button class="smodal-btn-primary" onclick="doChangePassword()">Update</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Toast -->
+  <div class="smodal-toast hidden" id="toast-msg">✅ Done!</div>
+
+  <!-- Script -->
+  <script src="js/settings.js" type="module"></script>
+
+</body>
+</html>

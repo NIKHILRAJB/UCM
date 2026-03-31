@@ -2,12 +2,14 @@
 let _history = [];
 
 function showScreen(id) {
+  const target = document.getElementById(id);
+  if (!target) {
+    console.warn('Unknown screen: ' + id);
+    return;   // ← just warn and return, don't crash
+  }
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  const el = document.getElementById(id);
-  if (el) { el.classList.add('active'); _history.push(id); window.scrollTo(0,0); }
-  else console.warn('Unknown screen:', id);
+  target.classList.add('active');
 }
-
 function goBack() {
   if (_history.length > 1) { _history.pop(); showScreen(_history[_history.length-1]); }
   else showScreen('screen-main-menu');

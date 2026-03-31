@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#FFFFFF" />
+  <title>UCM – Login</title>
+  <link rel="icon" type="image/png" href="images/logo_mascot_round.png" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body id="auth-body">
+
+  <div id="screen-auth" class="screen active">
+    <div class="auth-wrap">
+
+      <div class="auth-logo">
+        <img src="images/logo_umc_full_lg_.png" alt="UCM" class="logo-full-img" />
+      </div>
+
+      <!-- Tabs -->
+      <div class="auth-tabs">
+        <button class="btn-tab active" id="tab-login" onclick="switchTab('login')">Login</button>
+        <button class="btn-tab" id="tab-register" onclick="switchTab('register')">Register</button>
+      </div>
+
+      <!-- Login Form -->
+      <div id="form-login" class="auth-form">
+        <input type="email" id="login-email" placeholder="Email" autocomplete="email" />
+        <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" />
+        <p class="auth-error hidden" id="login-error"></p>
+        <button class="btn-primary" onclick="doLogin()">Login</button>
+        <button class="btn-secondary" onclick="doGoogle()">🔵 Continue with Google</button>
+        <p class="auth-link" onclick="switchTab('forgot')">Forgot Password?</p>
+      </div>
+
+      <!-- Register Form -->
+      <div id="form-register" class="auth-form hidden">
+        <input type="text" id="reg-username" placeholder="Username (max 16 chars)" maxlength="16" />
+        <input type="email" id="reg-email" placeholder="Email" autocomplete="email" />
+        <input type="password" id="reg-password" placeholder="Password (min 6 chars)" autocomplete="new-password" />
+        <p class="auth-error hidden" id="reg-error"></p>
+        <button class="btn-primary" onclick="doRegister()">Create Account</button>
+        <button class="btn-secondary" onclick="doGoogle()">🔵 Continue with Google</button>
+      </div>
+
+      <!-- Forgot Password Form -->
+      <div id="form-forgot" class="auth-form hidden">
+        <p class="auth-hint">Enter your email to receive a reset link.</p>
+        <input type="email" id="forgot-email" placeholder="Email" />
+        <p class="auth-error hidden" id="forgot-error"></p>
+        <p class="auth-success hidden" id="forgot-success"></p>
+        <button class="btn-primary" onclick="doForgot()">Send Reset Link</button>
+        <p class="auth-link" onclick="switchTab('login')">← Back to Login</p>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="js/auth.js" type="module"></script>
+
+</body>
+</html>

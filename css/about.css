@@ -1,0 +1,276 @@
+/* ============================================================
+   ABOUT PAGE — Matches settings.css style exactly
+   ============================================================ */
+
+body.about-page {
+  background: #F4F0EB;
+  min-height: 100vh;
+}
+
+#screen-about {
+  background: #F4F0EB !important;
+  min-height: 100vh;
+  padding-bottom: 40px;
+}
+
+/* ── Sticky Header ── */
+.about-screen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: #FFFFFF;
+  border-bottom: 1px solid #EEEEEE;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  min-height: 56px;
+}
+
+.about-header-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+}
+
+.about-header-center h2 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--brown-dark);
+  margin: 0;
+}
+
+.about-header-icon {
+  font-size: 1.2rem;
+}
+
+.btn-back-icon {
+  background: none;
+  border: none;
+  color: var(--brown-dark);
+  cursor: pointer;
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  transition: background var(--transition);
+  flex-shrink: 0;
+}
+.btn-back-icon:hover  { background: rgba(61, 26, 0, 0.08); }
+.btn-back-icon:active { background: rgba(61, 26, 0, 0.15); }
+.btn-back-icon svg    { width: 22px; height: 22px; }
+
+/* ── Page Content Wrapper ── */
+.about-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 20px 40px;
+  max-width: 640px;
+  margin: 0 auto;
+  background: transparent !important;
+}
+
+/* ── Hero Block ── */
+.about-hero-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 24px 20px 16px;
+  background: #FFFFFF;
+  border: 1.5px solid #DDDDDD;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 12px rgba(61, 26, 0, 0.06);
+}
+
+.about-big-mascot {
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid var(--gold);
+  box-shadow: 0 0 20px rgba(255, 186, 0, 0.35);
+  animation: about-mascot-bounce 2s ease-in-out infinite;
+}
+
+@keyframes about-mascot-bounce {
+  0%, 100% { transform: translateY(0px);  }
+  50%       { transform: translateY(-8px); }
+}
+
+.about-big-logo {
+  height: 40px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.12));
+  animation: about-logo-fade 2s ease-in-out infinite;
+}
+
+@keyframes about-logo-fade {
+  0%, 100% { opacity: 1;   }
+  50%       { opacity: 0.8; }
+}
+
+.about-version-badge {
+  background: var(--gold);
+  color: var(--brown-dark);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  padding: 4px 16px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(255, 186, 0, 0.3);
+}
+
+/* ── Cards — same as settings ── */
+.about-card {
+  width: 100%;
+  background: #FFFFFF;
+  border: 1.5px solid #DDDDDD;
+  border-radius: var(--radius);
+  padding: 18px 16px;
+  box-shadow: 0 2px 12px rgba(61, 26, 0, 0.06);
+}
+
+.about-card-quote {
+  border-left: 4px solid var(--gold);
+}
+
+/* ── Section Title — same as settings-card-title ── */
+.about-section-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--gold-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1.5px solid #EEEEEE;
+}
+
+/* ── Rows — same as settings-row ── */
+.about-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 11px 0;
+  border-bottom: 1px solid #F0F0F0;
+}
+.about-row:last-child { border-bottom: none; }
+
+.about-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--brown-dark);
+  opacity: 0.6;
+}
+
+.about-value {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--brown-dark);
+}
+
+/* ── Description ── */
+.about-desc {
+  font-size: 0.88rem;
+  color: var(--brown-dark);
+  opacity: 0.72;
+  line-height: 1.65;
+}
+
+/* ── Feature Pills ── */
+.about-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.about-feature-pill {
+  background: #F8F3EE;
+  border: 1.5px solid #DDDDDD;
+  color: var(--brown-dark);
+  border-radius: 99px;
+  padding: 5px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+/* ── Social Icons ── */
+.social-icon-row {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.social-icon-btn {
+  width: 50px; height: 50px;
+  background: #F8F3EE;
+  border: 1.5px solid #DDDDDD;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem;
+  text-decoration: none;
+  cursor: pointer;
+  color: var(--brown-dark);
+  font-weight: 700;
+  transition: border-color var(--transition),
+              background var(--transition),
+              transform var(--transition);
+}
+.social-icon-btn:hover {
+  border-color: var(--gold);
+  background: #FFF5D6;
+  transform: translateY(-3px);
+}
+.social-icon-btn:active { transform: translateY(0px); }
+
+.about-placeholder-note {
+  font-size: 0.75rem;
+  color: var(--brown-dark);
+  opacity: 0.45;
+  text-align: center;
+  font-style: italic;
+  margin-top: 6px;
+}
+
+/* ── Footer ── */
+.about-footer-divider {
+  width: 60px; height: 3px;
+  background: var(--gold);
+  border-radius: 99px;
+  opacity: 0.5;
+  margin: 4px auto 0;
+}
+
+.about-copyright {
+  font-size: 0.75rem;
+  color: var(--brown-dark);
+  opacity: 0.45;
+  text-align: center;
+  padding: 4px 0 8px;
+  line-height: 1.8;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .about-wrap {
+    padding: 16px 16px 32px;
+    gap: 14px;
+  }
+  .about-big-mascot {
+    width: 80px; height: 80px;
+  }
+  .about-big-logo {
+    height: 34px;
+  }
+  .social-icon-btn {
+    width: 44px; height: 44px;
+    font-size: 1rem;
+  }
+}

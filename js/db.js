@@ -163,37 +163,8 @@ function base64ToUint8Array(b64) {
 }
 
 // ── Boot sequence ─────────────────────────────────────────────────
+// ── Boot sequence ─────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
-  showScreen('screen-loading');
-
-  setProgress(0, 'Loading...');
-  await delay(400);
-
-  setProgress(15, 'Loading...');
-  await delay(500);
-
-  setProgress(30, 'Loading libraries...');
   await initDB();
-  await delay(600);
-
-  setProgress(50, 'Loading...');
-  await delay(700);
-
-  setProgress(70, 'Loading game data...');
-  await delay(600);
-
-  setProgress(85, 'Loading...');
-  await delay(500);
-
-  setProgress(100, 'READY! ');
-  await delay(800);
-
-  const btn = document.getElementById('btn-start');
-  btn.classList.remove('hidden');
-  btn.addEventListener('click', () => {
-    showScreen('screen-main-menu');
-    renderFriendlySlots(getFriendlySlots());
-  });
+  renderFriendlySlots(getFriendlySlots());
 });
-
-function delay(ms) { return new Promise(r => setTimeout(r, ms)); }

@@ -5,7 +5,6 @@ import {
   signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-// ─── Firebase Init ─────────────────────────────────────────────
 const firebaseConfig = {
   apiKey: "AIzaSyCsmoyzfLBxdACck8jkV245t8AAoDE7GN8",
   authDomain: "ultimate-cricket-manager.firebaseapp.com",
@@ -18,55 +17,50 @@ const firebaseConfig = {
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-// ─── Auth Guard ────────────────────────────────────────────────
 onAuthStateChanged(auth, (user) => {
   if (!user) {
     window.location.href = 'auth.html';
     return;
   }
 
-  // ── Show username in badge
-  const badge = document.getElementById('user-badge-name');
-  if (badge) {
-    const name = user.displayName || user.email.split('@')[0];
-    badge.textContent = '👤 ' + name;
-  }
+  window._ucmUID = user.uid;
 
-  // ── Multi-device check
-  // Look for ANY save slot for this user in localStorage
-  const uid      = user.uid;
-  const name     = user.displayName || user.email.split('@')[0];
-  const hasSave  =
+  const name   = user.displayName || user.email.split('@')[0];
+  const letter = name.charAt(0).toUpperCase();
+  const uid    = user.uid;
+
+  const badge = document.getElementById('user-badge-name');
+  if (badge) badge.textContent = '👤 ' + name;
+
+  const avatar = document.getElementById('menu-user-avatar');
+  if (avatar) avatar.textContent = letter;
+
+  const hasSave =
     localStorage.getItem(`UCM_${uid}_slot_1`) ||
     localStorage.getItem(`UCM_${uid}_slot_2`) ||
     localStorage.getItem(`UCM_${uid}_slot_3`) ||
-    localStorage.getItem(`UCM_${uid}_friendly_slot_1`);
+    localStorage.getItem(`UCM_${uid}_autosave`) ||
+    localStorage.getItem(`UCM_${uid}_session`);
 
   if (!hasSave) {
-    // Personalise the title with their name
     const titleEl = document.getElementById('no-save-title');
     if (titleEl) titleEl.textContent = `Welcome back, ${name}!`;
 
-    // Show the overlay
     const overlay = document.getElementById('no-save-overlay');
     if (overlay) overlay.classList.remove('hidden');
   }
 });
 
-// ─── Navigate ──────────────────────────────────────────────────
 window.navigate = function(page) {
   window.location.href = page;
 };
 
-// ─── Sign Out Confirmation ─────────────────────────────────────
 window.confirmSignOut = function() {
-  const overlay = document.getElementById('signout-overlay');
-  if (overlay) overlay.classList.remove('hidden');
+  document.getElementById('signout-overlay').classList.remove('hidden');
 };
 
 window.closeSignOutOverlay = function() {
-  const overlay = document.getElementById('signout-overlay');
-  if (overlay) overlay.classList.add('hidden');
+  document.getElementById('signout-overlay').classList.add('hidden');
 };
 
 window.doSignOut = async function() {
@@ -78,8 +72,6 @@ window.doSignOut = async function() {
   }
 };
 
-// ─── Close No-Save Overlay ─────────────────────────────────────
 window.closeNoSaveOverlay = function() {
-  const overlay = document.getElementById('no-save-overlay');
-  if (overlay) overlay.classList.add('hidden');
+  document.getElementById('no-save-overlay').classList.add('hidden');
 };

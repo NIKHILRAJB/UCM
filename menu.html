@@ -23,12 +23,18 @@
            onerror="this.style.display='none'" />
     </div>
 
-    <!-- Header: Mascot + Logo -->
+    <!-- Header: Mascot + Logo + User Avatar -->
     <div class="menu-header">
       <img src="images/logo_mascot_round.png" alt="UCM Mascot"
            class="menu-mascot" onerror="this.style.opacity='0'" />
       <img src="images/logo_text.png" alt="UCM"
            class="menu-logo-text" onerror="this.outerHTML='<div class=\'menu-logo-fallback\'>UCM</div>'" />
+      <!-- ── Gold Avatar Circle ── -->
+      <button class="menu-user-avatar" id="menu-user-avatar"
+              onclick="window.location.href='settings.html'"
+              title="Settings">
+        N
+      </button>
     </div>
 
     <!-- User Badge -->
@@ -117,7 +123,7 @@
   <div class="overlay hidden" id="signout-overlay">
     <div class="overlay-card">
       <p style="font-size:1.1rem; font-weight:700;">Sign Out?</p>
-      <p style="font-size:0.88rem; color:var(--text-muted); margin-top:4px;">
+      <p style="font-size:0.88rem; color:#666666; margin-top:4px;">
         You will be returned to the login screen.
       </p>
       <div class="overlay-actions">
@@ -133,12 +139,12 @@
        ══════════════════════════════════════════ -->
   <div class="overlay hidden" id="no-save-overlay">
     <div class="overlay-card">
-      <div style="font-size:2rem; margin-bottom:4px;">👋</div>
+      <div style="font-size:2rem;">👋</div>
       <p id="no-save-title"
          style="font-size:1.1rem; font-weight:800; color:var(--brown-dark);">
         Welcome back!
       </p>
-      <p style="font-size:0.88rem; color:#666666; margin-top:6px; line-height:1.6;">
+      <p style="font-size:0.88rem; color:#666666; line-height:1.6;">
         No save data found on this device.<br/>
         Your progress is saved on your original device.<br/><br/>
         You can start a new game here.

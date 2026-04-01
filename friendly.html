@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1A0D00" />
+  <title>Friendly Mode — UCM</title>
+  <link rel="icon" type="image/png" href="images/logo_mascot_round.png" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/friendly.css" />
+</head>
+<body>
+
+<div id="screen-friendly" class="screen active">
+
+  <!-- Background -->
+  <div class="menu-bg">
+    <img src="images/bg_main_menu.png" alt="" class="menu-bg-img" onerror="this.style.display='none'" />
+  </div>
+
+  <!-- ── HEADER ── -->
+  <header class="fm-header">
+    <button class="fm-icon-btn" onclick="window.location.href='menu.html'" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+    <div class="fm-header-title">
+      <span>🏏</span><span>Friendly Mode</span>
+    </div>
+    <button class="fm-icon-btn" id="btn-open-settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  </header>
+
+  <!-- ── SLOT CARDS ── -->
+  <main class="fm-main" id="fm-slots-wrap">
+    <!-- rendered by friendly.js -->
+  </main>
+
+  <!-- ── BOTTOM CTA ── -->
+  <div class="fm-bottom-bar" id="fm-bottom-bar">
+    <button class="fm-cta-btn" id="btn-new-match">＋ New Friendly Match</button>
+  </div>
+
+</div><!-- /screen-friendly -->
+
+
+<!-- ════════════════════════════════
+     SETTINGS BOTTOM SHEET
+════════════════════════════════ -->
+<div class="fm-scrim hidden" id="scrim-settings"></div>
+<div class="fm-sheet hidden" id="fm-settings-sheet">
+  <div class="fm-sheet-pill"></div>
+  <div class="fm-sheet-head">
+    <span class="fm-sheet-heading">Manage Slots</span>
+    <button class="fm-icon-btn-sm" id="btn-close-settings" aria-label="Close">✕</button>
+  </div>
+  <div id="fm-settings-list"></div>
+  <div class="fm-sheet-footer">
+    <button class="fm-btn-ghost-full" id="btn-settings-close2">Close</button>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════
+     DELETE CONFIRM POPUP
+════════════════════════════════ -->
+<div class="fm-scrim hidden" id="scrim-delete"></div>
+<div class="fm-popup hidden" id="fm-del-popup">
+  <p class="fm-popup-title">Delete "<span id="fm-del-name"></span>"?</p>
+  <p class="fm-popup-sub">This cannot be undone.</p>
+  <div class="fm-popup-row">
+    <button class="fm-btn-ghost-half" id="btn-del-cancel">Cancel</button>
+    <button class="fm-btn-danger-half" id="btn-del-confirm">🗑 Delete</button>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════
+     SETUP WIZARD  (floating card)
+════════════════════════════════ -->
+<div class="fm-scrim hidden" id="scrim-wizard"></div>
+<div class="fm-wizard hidden" id="fm-wizard">
+
+  <!-- Wizard header -->
+  <div class="fm-wizard-top">
+    <button class="fm-icon-btn-sm fm-wizard-back hidden" id="btn-wizard-back">←</button>
+    <span class="fm-wizard-step" id="wizard-step-lbl">Step 1 of 5</span>
+    <button class="fm-icon-btn-sm" id="btn-wizard-close" aria-label="Close">✕</button>
+  </div>
+  <h2 class="fm-wizard-title" id="wizard-title">Select Your Team</h2>
+  <div class="fm-wizard-divider"></div>
+
+  <!-- PANEL A — team grid (steps 1 & 2) -->
+  <div id="panel-teams" class="fm-wizard-panel">
+    <div class="fm-team-grid" id="fm-team-grid"></div>
+    <div class="fm-selected-bar" id="team-selected-bar">Tap a team to select</div>
+  </div>
+
+  <!-- PANEL B — overs (step 3) -->
+  <div id="panel-overs" class="fm-wizard-panel hidden">
+    <div class="fm-overs-grid" id="fm-overs-grid">
+      <button class="fm-overs-btn" data-val="50">50<small>overs</small></button>
+      <button class="fm-overs-btn" data-val="20">20<small>overs</small></button>
+      <button class="fm-overs-btn" data-val="10">10<small>overs</small></button>
+      <button class="fm-overs-btn" data-val="5">5<small>overs</small></button>
+      <button class="fm-overs-btn" data-val="2">2<small>overs</small></button>
+    </div>
+    <div class="fm-selected-bar" id="overs-selected-bar">Tap to select overs</div>
+  </div>
+
+  <!-- PANEL C — difficulty (step 4) -->
+  <div id="panel-diff" class="fm-wizard-panel hidden">
+    <div class="fm-diff-list" id="fm-diff-list">
+      <button class="fm-diff-row" data-val="easy">
+        <span class="fm-diff-emoji">🟢</span>
+        <div class="fm-diff-text"><strong>Easy</strong><span>Forgiving AI</span></div>
+        <span class="fm-diff-check hidden">✅</span>
+      </button>
+      <button class="fm-diff-row" data-val="medium">
+        <span class="fm-diff-emoji">🟡</span>
+        <div class="fm-diff-text"><strong>Medium</strong><span>Balanced</span></div>
+        <span class="fm-diff-check hidden">✅</span>
+      </button>
+      <button class="fm-diff-row" data-val="hard">
+        <span class="fm-diff-emoji">🔴</span>
+        <div class="fm-diff-text"><strong>Hard</strong><span>No mercy</span></div>
+        <span class="fm-diff-check hidden">✅</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- PANEL D — confirmation (step 5) -->
+  <div id="panel-confirm" class="fm-wizard-panel hidden">
+    <div class="fm-confirm-box">
+      <div class="fm-confirm-vs">
+        <div class="fm-confirm-team" id="cf-team-a"></div>
+        <div class="fm-confirm-sep">vs</div>
+        <div class="fm-confirm-team" id="cf-team-b"></div>
+      </div>
+      <div class="fm-confirm-divider"></div>
+      <div class="fm-confirm-row"><span id="cf-overs-fmt"></span></div>
+      <div class="fm-confirm-row"><span id="cf-diff"></span></div>
+      <div class="fm-confirm-id">Match ID: <strong id="cf-match-id"></strong></div>
+    </div>
+  </div>
+
+  <!-- Wizard footer -->
+  <div class="fm-wizard-footer">
+    <p class="fm-wizard-err hidden" id="fm-wizard-err"></p>
+    <button class="fm-cta-btn" id="btn-wizard-ok">OK →</button>
+  </div>
+
+</div><!-- /fm-wizard -->
+
+
+<!-- ════ SCRIPTS ════ -->
+<script src="lib/sql-wasm.js"></script>
+<script src="data/seed_data.js"></script>
+<script src="js/db.js"></script>
+<script src="js/save_load.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/friendly.js?v=32" type="module"></script>
+
+</body>
+</html>

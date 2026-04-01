@@ -1229,3 +1229,40 @@ html, body {
   padding: 4px 0 16px;
   line-height: 1.8;
 }
+
+/* ============================================================
+   MENU USER AVATAR — Gold circle top-right of header
+   ============================================================ */
+.menu-user-avatar {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--brown-dark);
+  border: 2.5px solid var(--brown-dark);
+  font-size: 1.05rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(255, 186, 0, 0.5);
+  transition: transform var(--transition),
+              box-shadow var(--transition),
+              background var(--transition);
+  text-transform: uppercase;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.menu-user-avatar:hover {
+  transform: scale(1.1);
+  background: var(--gold-dark);
+  box-shadow: 0 4px 16px rgba(255, 186, 0, 0.7);
+}
+.menu-user-avatar:active {
+  transform: scale(0.95);
+}

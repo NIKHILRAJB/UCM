@@ -18,16 +18,18 @@
     <img src="images/bg_main_menu.png" alt="" class="menu-bg-img" onerror="this.style.display='none'" />
   </div>
 
-  <!-- ── HEADER ── -->
+  <!-- Header -->
   <header class="fm-header">
     <button class="fm-icon-btn" onclick="window.location.href='menu.html'" aria-label="Back">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <polyline points="15 18 9 12 15 6"/>
       </svg>
     </button>
+
     <div class="fm-header-title">
       <span>🏏</span><span>Friendly Mode</span>
     </div>
+
     <button class="fm-icon-btn" id="btn-open-settings" aria-label="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="3"/>
@@ -36,22 +38,28 @@
     </button>
   </header>
 
-  <!-- ── SLOT CARDS ── -->
-  <main class="fm-main" id="fm-slots-wrap">
+  <!-- Loading -->
+  <div class="fm-loading" id="fm-loading-state" aria-live="polite">
+    <div class="fm-loading-card">
+      <div class="fm-loading-spinner"></div>
+      <div class="fm-loading-title">Loading Friendly Matches...</div>
+      <div class="fm-loading-sub">Checking account and restoring saved slots.</div>
+    </div>
+  </div>
+
+  <!-- Slot Cards -->
+  <main class="fm-main hidden" id="fm-slots-wrap">
     <!-- rendered by friendly.js -->
   </main>
 
-  <!-- ── BOTTOM CTA ── -->
-  <div class="fm-bottom-bar" id="fm-bottom-bar">
+  <!-- Bottom CTA -->
+  <div class="fm-bottom-bar hidden" id="fm-bottom-bar">
     <button class="fm-cta-btn" id="btn-new-match">＋ New Friendly Match</button>
   </div>
 
-</div><!-- /screen-friendly -->
+</div>
 
-
-<!-- ════════════════════════════════
-     SETTINGS BOTTOM SHEET
-════════════════════════════════ -->
+<!-- Settings Bottom Sheet -->
 <div class="fm-scrim hidden" id="scrim-settings"></div>
 <div class="fm-sheet hidden" id="fm-settings-sheet">
   <div class="fm-sheet-pill"></div>
@@ -65,10 +73,7 @@
   </div>
 </div>
 
-
-<!-- ════════════════════════════════
-     DELETE CONFIRM POPUP
-════════════════════════════════ -->
+<!-- Delete Confirm Popup -->
 <div class="fm-scrim hidden" id="scrim-delete"></div>
 <div class="fm-popup hidden" id="fm-del-popup">
   <p class="fm-popup-title">Delete "<span id="fm-del-name"></span>"?</p>
@@ -79,29 +84,24 @@
   </div>
 </div>
 
-
-<!-- ════════════════════════════════
-     SETUP WIZARD  (floating card)
-════════════════════════════════ -->
+<!-- Setup Wizard -->
 <div class="fm-scrim hidden" id="scrim-wizard"></div>
 <div class="fm-wizard hidden" id="fm-wizard">
 
-  <!-- Wizard header -->
   <div class="fm-wizard-top">
     <button class="fm-icon-btn-sm fm-wizard-back hidden" id="btn-wizard-back">←</button>
     <span class="fm-wizard-step" id="wizard-step-lbl">Step 1 of 5</span>
     <button class="fm-icon-btn-sm" id="btn-wizard-close" aria-label="Close">✕</button>
   </div>
+
   <h2 class="fm-wizard-title" id="wizard-title">Select Your Team</h2>
   <div class="fm-wizard-divider"></div>
 
-  <!-- PANEL A — team grid (steps 1 & 2) -->
   <div id="panel-teams" class="fm-wizard-panel">
     <div class="fm-team-grid" id="fm-team-grid"></div>
     <div class="fm-selected-bar" id="team-selected-bar">Tap a team to select</div>
   </div>
 
-  <!-- PANEL B — overs (step 3) -->
   <div id="panel-overs" class="fm-wizard-panel hidden">
     <div class="fm-overs-grid" id="fm-overs-grid">
       <button class="fm-overs-btn" data-val="50">50<small>overs</small></button>
@@ -113,7 +113,6 @@
     <div class="fm-selected-bar" id="overs-selected-bar">Tap to select overs</div>
   </div>
 
-  <!-- PANEL C — difficulty (step 4) -->
   <div id="panel-diff" class="fm-wizard-panel hidden">
     <div class="fm-diff-list" id="fm-diff-list">
       <button class="fm-diff-row" data-val="easy">
@@ -134,7 +133,6 @@
     </div>
   </div>
 
-  <!-- PANEL D — confirmation (step 5) -->
   <div id="panel-confirm" class="fm-wizard-panel hidden">
     <div class="fm-confirm-box">
       <div class="fm-confirm-vs">
@@ -149,22 +147,18 @@
     </div>
   </div>
 
-  <!-- Wizard footer -->
   <div class="fm-wizard-footer">
     <p class="fm-wizard-err hidden" id="fm-wizard-err"></p>
     <button class="fm-cta-btn" id="btn-wizard-ok">OK →</button>
   </div>
+</div>
 
-</div><!-- /fm-wizard -->
-
-
-<!-- ════ SCRIPTS ════ -->
 <script src="lib/sql-wasm.js"></script>
 <script src="data/seed_data.js"></script>
 <script src="js/db.js"></script>
 <script src="js/save_load.js"></script>
 <script src="js/ui.js"></script>
-<script src="js/friendly.js?v=32" type="module"></script>
+<script src="js/friendly.js?v=33" type="module"></script>
 
 </body>
 </html>

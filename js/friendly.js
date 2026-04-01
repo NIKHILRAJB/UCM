@@ -9,7 +9,8 @@ const firebaseConfig = {
   messagingSenderId: "939330999487",
   appId: "1:939330999487:web:eeaa137fa6b104e18ea20a"
 };
-const app  = initializeApp(firebaseConfig);
+
+const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 function waitForAuthUser() {
@@ -28,44 +29,72 @@ function waitForAuthUser() {
   });
 }
 
-let _allTeams  = [];
+let _allTeams = [];
 let _deleteIdx = null;
+let _bootDone = false;
 
 const wiz = { step:1, userTeam:null, oppTeam:null, overs:null, diff:null };
 
 window.addEventListener('DOMContentLoaded', async () => {
-  const user = await waitForAuthUser();
-  if (!user) return;
+  try {
+    const user = await waitForAuthUser();
+    if (!user) return;
 
-  await initDB();
-  _allTeams = loadAllTeams();
-  renderSlots();
+    await initDB();
+    _allTeams = loadAllTeams();
+    renderSlots();
+    finishInitialLoad();
 
-  $('btn-open-settings').addEventListener('click', openSettings);
-  $('btn-close-settings').addEventListener('click', closeSettings);
-  $('btn-settings-close2').addEventListener('click', closeSettings);
-  $('scrim-settings').addEventListener('click', closeSettings);
+    $('btn-open-settings').addEventListener('click', openSettings);
+    $('btn-close-settings').addEventListener('click', closeSettings);
+    $('btn-settings-close2').addEventListener('click', closeSettings);
+    $('scrim-settings').addEventListener('click', closeSettings);
 
-  $('btn-del-cancel').addEventListener('click', cancelDelete);
-  $('btn-del-confirm').addEventListener('click', doDelete);
-  $('scrim-delete').addEventListener('click', cancelDelete);
+    $('btn-del-cancel').addEventListener('click', cancelDelete);
+    $('btn-del-confirm').addEventListener('click', doDelete);
+    $('scrim-delete').addEventListener('click', cancelDelete);
 
-  $('btn-new-match').addEventListener('click', openWizard);
-  $('btn-wizard-close').addEventListener('click', closeWizard);
-  $('scrim-wizard').addEventListener('click', closeWizard);
-  $('btn-wizard-back').addEventListener('click', wizBack);
-  $('btn-wizard-ok').addEventListener('click', wizNext);
+    $('btn-new-match').addEventListener('click', openWizard);
+    $('btn-wizard-close').addEventListener('click', closeWizard);
+    $('scrim-wizard').addEventListener('click', closeWizard);
+    $('btn-wizard-back').addEventListener('click', wizBack);
+    $('btn-wizard-ok').addEventListener('click', wizNext);
+  } catch (err) {
+    console.error('Friendly init failed:', err);
+    failInitialLoad();
+  }
 });
 
+function finishInitialLoad() {
+  if (_bootDone) return;
+  _bootDone = true;
+  hide('fm-loading-state');
+  show('fm-slots-wrap');
+  show('fm-bottom-bar');
+}
+
+function failInitialLoad() {
+  const box = $('fm-loading-state');
+  if (!box) return;
+  box.innerHTML = `
+    <div class="fm-loading-card">
+      <div class="fm-loading-title">Could not load Friendly Matches</div>
+      <div class="fm-loading-sub">Please refresh the page and try again.</div>
+    </div>
+  `;
+}
+
 function renderSlots() {
-  const wrap  = $('fm-slots-wrap');
-  const bar   = $('fm-bottom-bar');
+  const wrap = $('fm-slots-wrap');
+  const bar = $('fm-bottom-bar');
+  if (!wrap || !bar) return;
+
   const slots = getSlots();
   wrap.replaceChildren();
   let hasEmpty = false;
 
   for (let i = 0; i < 3; i++) {
-    const s    = slots[i];
+    const s = slots[i];
     const card = document.createElement('div');
 
     if (s.slot_name) {
@@ -74,7 +103,7 @@ function renderSlots() {
 
       const diffDot = { easy:'🟢', medium:'🟡', hard:'🔴' }[s.difficulty] || '🟡';
       const diffCls = 'fm-card-diff-' + (s.difficulty || 'medium');
-      const overTx  = Number(s.overs) > 0 ? `T20 · ${s.overs} ov` : 'Test';
+      const overTx = Number(s.overs) > 0 ? `T20 · ${s.overs} ov` : 'Test';
 
       const info = el('div','fm-card-info',`
         <div class="fm-card-match-id">${x(s.slot_name)}</div>
@@ -117,12 +146,12 @@ function closeSettings() {
 }
 
 function renderSettingsList() {
-  const list  = $('fm-settings-list');
+  const list = $('fm-settings-list');
   const slots = getSlots();
   list.replaceChildren();
 
   for (let i = 0; i < 3; i++) {
-    const s   = slots[i];
+    const s = slots[i];
     const row = document.createElement('div');
     row.className = 'fm-settings-row';
 
@@ -230,7 +259,6 @@ function wizNext() {
 
 function renderWizStep() {
   clearWizErr();
-
   $('wizard-step-lbl').textContent = `Step ${wiz.step} of 5`;
   $('btn-wizard-back').classList.toggle('hidden', wiz.step === 1);
 
@@ -282,7 +310,7 @@ function buildTeamGrid() {
   });
 
   const cur = wiz.step === 1 ? wiz.userTeam : wiz.oppTeam;
-  const t   = _allTeams.find(t => t.id === cur);
+  const t = _allTeams.find(t => t.id === cur);
   $('team-selected-bar').textContent = t ? `${t.flag || '🏏'} ${t.name} ✅` : 'Tap a team to select';
 }
 
@@ -323,7 +351,7 @@ function buildConfirmPanel() {
   const ta = _allTeams.find(t => t.id === wiz.userTeam);
   const tb = _allTeams.find(t => t.id === wiz.oppTeam);
   const diffLabel = {easy:'🟢 Easy', medium:'🟡 Medium', hard:'🔴 Hard'}[wiz.diff];
-  const matchId   = makeMatchId(wiz.userTeam, wiz.oppTeam, wiz.overs);
+  const matchId = makeMatchId(wiz.userTeam, wiz.oppTeam, wiz.overs);
 
   $('cf-team-a').innerHTML = `<span class="fm-confirm-flag">${ta?.flag || '🏏'}</span>${x(ta?.name || wiz.userTeam)}`;
   $('cf-team-b').innerHTML = `<span class="fm-confirm-flag">${tb?.flag || '🏏'}</span>${x(tb?.name || wiz.oppTeam)}`;

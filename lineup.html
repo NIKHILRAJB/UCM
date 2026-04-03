@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+  <meta name="theme-color" content="1A0D00" />
+  <title>Lineup – UCM</title>
+  <link rel="icon" type="image/png" href="images/logomascotround.png" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/friendly.css" />
+  <link rel="stylesheet" href="css/lineup.css" />
+</head>
+<body>
+
+<div id="screen-lineup" class="screen active">
+  <div class="menu-bg">
+    <img src="images/bg_main_menu.png" alt="" class="menu-bg-img"
+      onerror="this.style.display='none'" />
+  </div>
+
+  <!-- Mode Bar -->
+  <div class="fm-mode-bar">
+    <div class="fm-mode-pill">
+      <img src="images/iconfriendly 2.png" alt="" class="fm-pill-icon"
+        onerror="this.style.display='none'" />
+      <span class="fm-pill-label">Lineup</span>
+    </div>
+    <button class="fm-back-btn" id="btn-lineup-back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Progress -->
+  <div class="lu-progress-wrap">
+    <div class="lu-progress-track">
+      <div class="lu-progress-fill" id="lu-progress-fill"></div>
+    </div>
+    <div class="lu-step-labels">
+      <span class="lu-step-lbl" data-step="1">XI</span>
+      <span class="lu-step-lbl" data-step="2">Orders</span>
+      <span class="lu-step-lbl" data-step="3">Venue</span>
+      <span class="lu-step-lbl" data-step="4">Summary</span>
+      <span class="lu-step-lbl" data-step="5">Toss</span>
+    </div>
+  </div>
+
+  <div class="lu-main" id="lu-main-content"></div>
+
+  <div class="lu-bottom-bar">
+    <button class="lu-btn-secondary" id="btn-lu-back">← Back</button>
+    <button class="lu-btn-primary"   id="btn-lu-next">Next →</button>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     POPUP: Playing XI
+═══════════════════════════════════════ -->
+<div class="lu-scrim hidden" id="scrim-xi" onclick="closeXIPopup()"></div>
+<div class="lu-sheet hidden" id="sheet-xi">
+  <div class="lu-sheet-pill"></div>
+  <div class="lu-sheet-head">
+    <span class="lu-sheet-title" id="xi-popup-title">Select Playing XI</span>
+    <button class="lu-sheet-close" onclick="closeXIPopup()">✕</button>
+  </div>
+  <div class="lu-xi-count" id="xi-count-bar">0 / 11 selected</div>
+  <div class="lu-xi-toolbar">
+    <input type="text" class="lu-xi-search" id="xi-search"
+      placeholder="Search player…" oninput="filterXIList()" />
+    <div class="lu-xi-filters" id="xi-filters">
+      <button class="lu-filter-btn active" data-role="ALL">All</button>
+      <button class="lu-filter-btn" data-role="BAT">BAT</button>
+      <button class="lu-filter-btn" data-role="ALL-ROUND">ALL</button>
+      <button class="lu-filter-btn" data-role="BOWL">BOWL</button>
+      <button class="lu-filter-btn" data-role="WK">WK</button>
+    </div>
+  </div>
+  <div class="lu-player-list" id="xi-player-list"></div>
+  <div class="lu-sheet-footer">
+    <div class="lu-xi-rules" id="xi-rules-bar">⚠️ At least 1 Wicketkeeper required</div>
+    <button class="lu-btn-primary lu-btn-full" onclick="confirmXI()">Confirm XI</button>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     POPUP: Player Detail
+═══════════════════════════════════════ -->
+<div class="lu-scrim hidden" id="scrim-player-detail" onclick="closePlayerDetail()"></div>
+<div class="lu-sheet hidden" id="sheet-player-detail">
+  <div class="lu-sheet-pill"></div>
+  <div class="lu-sheet-head">
+    <span class="lu-sheet-title" id="pd-title">Player Details</span>
+    <button class="lu-sheet-close" onclick="closePlayerDetail()">✕</button>
+  </div>
+  <div class="lu-player-detail-body" id="pd-body"></div>
+  <div class="lu-sheet-footer">
+    <button class="lu-btn-primary lu-btn-full" id="pd-select-btn">Select Player</button>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     POPUP: Batting Order
+═══════════════════════════════════════ -->
+<div class="lu-scrim hidden" id="scrim-bat-order" onclick="closeBatOrder()"></div>
+<div class="lu-sheet hidden" id="sheet-bat-order">
+  <div class="lu-sheet-pill"></div>
+
+  <!-- Header row -->
+  <div class="lu-sheet-head">
+    <span class="lu-sheet-title">Batting Order</span>
+    <button class="lu-sheet-close" onclick="closeBatOrder()">✕</button>
+  </div>
+
+  <!-- Action buttons row: Auto Arrange + Clear -->
+  <div class="lu-sheet-actions">
+    <button class="lu-action-btn ai"      id="btn-bat-auto">
+      ✨ Auto Arrange
+    </button>
+    <button class="lu-action-btn danger"  id="btn-bat-clear">
+      🗑 Clear
+    </button>
+  </div>
+
+  <div class="lu-order-hint">Press &amp; hold ⠿ to drag · or use ▲ ▼ arrows</div>
+  <div class="lu-order-list" id="bat-order-list"></div>
+
+  <div class="lu-sheet-footer">
+    <button class="lu-btn-primary lu-btn-full" onclick="confirmBatOrder()">
+      Save Order
+    </button>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     POPUP: Bowling Over Assignment
+═══════════════════════════════════════ -->
+<div class="lu-scrim hidden" id="scrim-bowl-assign" onclick="closeBowlAssign()"></div>
+<div class="lu-sheet hidden" id="sheet-bowl-assign">
+  <div class="lu-sheet-pill"></div>
+
+  <!-- Header row -->
+  <div class="lu-sheet-head">
+    <span class="lu-sheet-title" id="bowl-assign-title">Bowling Plan</span>
+    <button class="lu-sheet-close" onclick="closeBowlAssign()">✕</button>
+  </div>
+
+  <!-- Action buttons row: Auto Fill + Clear -->
+  <div class="lu-sheet-actions">
+    <button class="lu-action-btn ai"      id="btn-bowl-auto">
+      ✨ Auto Fill
+    </button>
+    <button class="lu-action-btn danger"  id="btn-bowl-clear">
+      🗑 Clear
+    </button>
+  </div>
+
+  <div class="lu-bowl-assign-info" id="bowl-assign-info"></div>
+  <div class="lu-bowl-assign-body" id="bowl-assign-body"></div>
+
+  <div class="lu-sheet-footer">
+    <div class="lu-bowl-progress-row" id="bowl-progress-row"></div>
+    <button class="lu-btn-primary lu-btn-full" onclick="confirmBowlAssign()">
+      Save Plan
+    </button>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     POPUP: Captain Select
+═══════════════════════════════════════ -->
+<div class="lu-scrim hidden" id="scrim-captain" onclick="closeCaptain()"></div>
+<div class="lu-sheet hidden" id="sheet-captain">
+  <div class="lu-sheet-pill"></div>
+  <div class="lu-sheet-head">
+    <span class="lu-sheet-title">Select Captain</span>
+    <button class="lu-sheet-close" onclick="closeCaptain()">✕</button>
+  </div>
+  <div class="lu-captain-grid" id="captain-grid"></div>
+  <div class="lu-sheet-footer">
+    <button class="lu-btn-primary lu-btn-full" onclick="confirmCaptain()">
+      Confirm Captain
+    </button>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     POPUP: Venue
+═══════════════════════════════════════ -->
+<div class="lu-scrim hidden" id="scrim-venue" onclick="closeVenue()"></div>
+<div class="lu-sheet hidden" id="sheet-venue">
+  <div class="lu-sheet-pill"></div>
+  <div class="lu-sheet-head">
+    <span class="lu-sheet-title">Choose Venue</span>
+    <button class="lu-sheet-close" onclick="closeVenue()">✕</button>
+  </div>
+  <div class="lu-venue-list" id="venue-list"></div>
+  <div class="lu-sheet-footer">
+    <button class="lu-btn-primary lu-btn-full" onclick="confirmVenue()">
+      Confirm Venue
+    </button>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     POPUP: Opponent Details
+═══════════════════════════════════════ -->
+<div class="lu-scrim hidden" id="scrim-opp-detail" onclick="closeOppDetail()"></div>
+<div class="lu-sheet hidden" id="sheet-opp-detail">
+  <div class="lu-sheet-pill"></div>
+  <div class="lu-sheet-head">
+    <span class="lu-sheet-title" id="opp-detail-title">Opponent Details</span>
+    <button class="lu-sheet-close" onclick="closeOppDetail()">✕</button>
+  </div>
+  <div class="lu-opp-detail-body" id="opp-detail-body"></div>
+  <!-- No footer / confirm needed for read-only opponent detail -->
+</div>
+
+
+<script src="lib/sql-wasm.js"></script>
+<script src="data/seed_data.js"></script>
+<script src="js/db.js"></script>
+<script src="js/save_load.js"></script>
+<script type="module" src="js/lineup-helpers.js"></script>
+<script type="module" src="js/lineup-ai.js"></script>
+<script type="module" src="js/lineup-popups.js"></script>
+<script type="module" src="js/lineup.js"></script>
+
+</body>
+</html>

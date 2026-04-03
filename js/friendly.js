@@ -360,38 +360,53 @@ function buildConfirmPanel() {
   $('cf-match-id').textContent = matchId;
 }
 
+// ── CHANGED: saves slot then goes to lineup.html ─────────────
 function commitMatch() {
   const slots = getSlots();
   let emptyIdx = -1;
 
   for (let i = 0; i < 3; i++) {
-    if (!slots[i].slot_name) {
-      emptyIdx = i;
-      break;
-    }
+    if (!slots[i].slot_name) { emptyIdx = i; break; }
   }
 
-  if (emptyIdx === -1) {
-    wizErr('All 3 slots are full.');
-    return;
-  }
+  if (emptyIdx === -1) { wizErr('All 3 slots are full.'); return; }
 
   const matchId = makeMatchId(wiz.userTeam, wiz.oppTeam, wiz.overs);
   saveFriendlySlot(emptyIdx, matchId, wiz.userTeam, wiz.oppTeam, parseInt(wiz.overs, 10), wiz.diff, {});
+
+  sessionStorage.setItem('ucm_lineup_slot', JSON.stringify({
+    slotIndex:  emptyIdx,
+    slotName:   matchId,
+    userTeam:   wiz.userTeam,
+    oppTeam:    wiz.oppTeam,
+    overs:      parseInt(wiz.overs, 10),
+    difficulty: wiz.diff,
+    matchState: {}
+  }));
+
   closeWizard();
-  renderSlots();
+  window.location.href = 'lineup.html';
 }
 
+// ── CHANGED: saves context then goes to lineup.html ──────────
 function resumeSlot(i) {
   const s = getSlots()[i];
-  if (!s || !s.slot_name) {
-    openWizard();
-    return;
-  }
+  if (!s || !s.slot_name) { openWizard(); return; }
 
-  alert(`▶ Resume coming in Phase 2!\n\n${s.slot_name}\n${teamName(s.user_team)} vs ${teamName(s.opp_team)}`);
+  sessionStorage.setItem('ucm_lineup_slot', JSON.stringify({
+    slotIndex:  i,
+    slotName:   s.slot_name,
+    userTeam:   s.user_team,
+    oppTeam:    s.opp_team,
+    overs:      Number(s.overs),
+    difficulty: s.difficulty,
+    matchState: s.match_state || {}
+  }));
+
+  window.location.href = 'lineup.html';
 }
 
+// ── ALL HELPERS UNCHANGED ─────────────────────────────────────
 function getSlots() {
   const raw = getFriendlySlots() || [];
   const map = {0: emptyRow(0), 1: emptyRow(1), 2: emptyRow(2)};

@@ -18,42 +18,16 @@
       onerror="this.style.display='none'" />
   </div>
 
-  <!-- Mode Bar -->
-  <div class="fm-mode-bar">
-    <div class="fm-mode-pill">
-      <img src="images/iconfriendly 2.png" alt="" class="fm-pill-icon"
-        onerror="this.style.display='none'" />
-      <span class="fm-pill-label">Lineup</span>
-    </div>
-    <button class="fm-back-btn" id="btn-lineup-back">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <polyline points="15 18 9 12 15 6"/>
-      </svg>
-    </button>
-  </div>
-
-  <!-- Progress -->
-  <div class="lu-progress-wrap">
-    <div class="lu-progress-track">
-      <div class="lu-progress-fill" id="lu-progress-fill"></div>
-    </div>
-    <div class="lu-step-labels">
-      <span class="lu-step-lbl" data-step="1">XI</span>
-      <span class="lu-step-lbl" data-step="2">Orders</span>
-      <span class="lu-step-lbl" data-step="3">Venue</span>
-      <span class="lu-step-lbl" data-step="4">Summary</span>
-      <span class="lu-step-lbl" data-step="5">Toss</span>
-    </div>
-  </div>
-
   <div class="lu-main" id="lu-main-content"></div>
 
+  <!-- UPDATED BOTTOM BAR — Added Cancel button -->
   <div class="lu-bottom-bar">
     <button class="lu-btn-secondary" id="btn-lu-back">← Back</button>
     <button class="lu-btn-primary"   id="btn-lu-next">Next →</button>
+    <!-- NEW: Cancel button — only visible on Step 5 (toss screen) via JS -->
+    <button class="lu-btn-secondary" id="btn-lu-cancel" style="display:none">✕ Cancel</button>
   </div>
 </div>
-
 
 <!-- ══════════════════════════════════════
      POPUP: Playing XI
@@ -84,7 +58,6 @@
   </div>
 </div>
 
-
 <!-- ══════════════════════════════════════
      POPUP: Player Detail
 ═══════════════════════════════════════ -->
@@ -101,20 +74,17 @@
   </div>
 </div>
 
-
 <!-- ══════════════════════════════════════
      POPUP: Batting Order
 ═══════════════════════════════════════ -->
 <div class="lu-scrim hidden" id="scrim-bat-order" onclick="closeBatOrder()"></div>
 <div class="lu-sheet hidden" id="sheet-bat-order">
   <div class="lu-sheet-pill"></div>
-
   <!-- Header row -->
   <div class="lu-sheet-head">
     <span class="lu-sheet-title">Batting Order</span>
     <button class="lu-sheet-close" onclick="closeBatOrder()">✕</button>
   </div>
-
   <!-- Action buttons row: Auto Arrange + Clear -->
   <div class="lu-sheet-actions">
     <button class="lu-action-btn ai"      id="btn-bat-auto">
@@ -124,10 +94,8 @@
       🗑 Clear
     </button>
   </div>
-
-  <div class="lu-order-hint">Press &amp; hold ⠿ to drag · or use ▲ ▼ arrows</div>
+  <div class="lu-order-hint">Press & hold ⠿ to drag · or use ▲ ▼ arrows</div>
   <div class="lu-order-list" id="bat-order-list"></div>
-
   <div class="lu-sheet-footer">
     <button class="lu-btn-primary lu-btn-full" onclick="confirmBatOrder()">
       Save Order
@@ -135,20 +103,17 @@
   </div>
 </div>
 
-
 <!-- ══════════════════════════════════════
      POPUP: Bowling Over Assignment
 ═══════════════════════════════════════ -->
 <div class="lu-scrim hidden" id="scrim-bowl-assign" onclick="closeBowlAssign()"></div>
 <div class="lu-sheet hidden" id="sheet-bowl-assign">
   <div class="lu-sheet-pill"></div>
-
   <!-- Header row -->
   <div class="lu-sheet-head">
     <span class="lu-sheet-title" id="bowl-assign-title">Bowling Plan</span>
     <button class="lu-sheet-close" onclick="closeBowlAssign()">✕</button>
   </div>
-
   <!-- Action buttons row: Auto Fill + Clear -->
   <div class="lu-sheet-actions">
     <button class="lu-action-btn ai"      id="btn-bowl-auto">
@@ -158,10 +123,8 @@
       🗑 Clear
     </button>
   </div>
-
   <div class="lu-bowl-assign-info" id="bowl-assign-info"></div>
   <div class="lu-bowl-assign-body" id="bowl-assign-body"></div>
-
   <div class="lu-sheet-footer">
     <div class="lu-bowl-progress-row" id="bowl-progress-row"></div>
     <button class="lu-btn-primary lu-btn-full" onclick="confirmBowlAssign()">
@@ -169,7 +132,6 @@
     </button>
   </div>
 </div>
-
 
 <!-- ══════════════════════════════════════
      POPUP: Captain Select
@@ -189,7 +151,6 @@
   </div>
 </div>
 
-
 <!-- ══════════════════════════════════════
      POPUP: Venue
 ═══════════════════════════════════════ -->
@@ -208,7 +169,6 @@
   </div>
 </div>
 
-
 <!-- ══════════════════════════════════════
      POPUP: Opponent Details
 ═══════════════════════════════════════ -->
@@ -222,7 +182,6 @@
   <div class="lu-opp-detail-body" id="opp-detail-body"></div>
   <!-- No footer / confirm needed for read-only opponent detail -->
 </div>
-
 
 <script src="lib/sql-wasm.js"></script>
 <script src="data/seed_data.js"></script>

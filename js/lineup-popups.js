@@ -191,15 +191,49 @@ function _confirmXI(onConfirm) {
 // ═══════════════════════════════════════════
 export function openPlayerDetail(p) {
   $('pd-title').textContent = p.name;
+
+  // ── Nationality: stored as short code, display in CAPS ──
+  const natDisplay = (p.nationality || p.team_id || '—').toUpperCase();
+
+  // ── Batting info row ──────────────────────────────────────
+  const batInfo = [
+    p.bat_hand ? `${p.bat_hand} Bat` : null,
+    p.bat_pos  ? p.bat_pos           : null,
+  ].filter(Boolean).join(' · ');
+
+  // ── Bowling info row — show dash if pure BAT/WK ──────────
+  const isBatter  = !p.bowl_type && !p.bowl_hand;
+  const bowlParts = [
+    p.bowl_hand ? p.bowl_hand : null,
+    p.bowl_type ? p.bowl_type : null,
+  ].filter(Boolean).join(' ');
+  const bowlInfo  = bowlParts || '—';
+
   $('pd-body').innerHTML = `
     <div class="lu-pd-hero">
       <div class="lu-pd-avatar">${roleEmoji(p.role)}</div>
-      <div>
+      <div class="lu-pd-hero-right">
         <div class="lu-pd-name">${esc(p.name)}</div>
-        <div class="lu-pd-role">${esc(p.role || '—')}</div>
-        <div class="lu-pd-country">${esc(p.nationality || p.team_id || '—')}</div>
+        <div class="lu-pd-role">${esc(p.role || '—')} · ${natDisplay}</div>
+
+        <!-- Batting info -->
+        <div class="lu-pd-style-row">
+          <span class="lu-pd-style-icon">🏏</span>
+          <span class="lu-pd-style-txt">
+            ${batInfo || '—'}
+          </span>
+        </div>
+
+        <!-- Bowling info — always shown, dash if no bowling -->
+        <div class="lu-pd-style-row">
+          <span class="lu-pd-style-icon">🎯</span>
+          <span class="lu-pd-style-txt ${isBatter ? 'lu-pd-style-na' : ''}">
+            ${bowlInfo}
+          </span>
+        </div>
       </div>
     </div>
+
     <div class="lu-pd-stats-grid">
       <div class="lu-pd-stat">
         <div class="lu-pd-stat-val">${p.batting  ?? '—'}</div>
@@ -219,20 +253,19 @@ export function openPlayerDetail(p) {
       </div>
       <div class="lu-pd-stat">
         <div class="lu-pd-stat-val">${p.ps       ?? '—'}</div>
-        <div class="lu-pd-stat-lbl">Overall PS</div>
+        <div class="lu-pd-stat-lbl">Prof Score</div>
       </div>
       <div class="lu-pd-stat">
         <div class="lu-pd-stat-val">${p.age      ?? '—'}</div>
         <div class="lu-pd-stat-lbl">Age</div>
       </div>
     </div>
+
     <div class="lu-pd-tags-wrap">
       ${buildTags(p)}
-      ${p.bat_hand   ? `<span class="lu-tag blue">${esc(p.bat_hand)}</span>`   : ''}
-      ${p.bowl_type  ? `<span class="lu-tag green">${esc(p.bowl_type)}</span>` : ''}
-      ${p.bat_pos    ? `<span class="lu-tag">${esc(p.bat_pos)}</span>`         : ''}
-      ${p.bowl_phase ? `<span class="lu-tag">${esc(p.bowl_phase)}</span>`      : ''}
       ${isWK(p)      ? `<span class="lu-tag blue">Wicketkeeper</span>`         : ''}
+      ${p.is_overseas ? `<span class="lu-tag red">Overseas</span>`             : ''}
+      ${p.is_youth    ? `<span class="lu-tag green">Youth</span>`              : ''}
     </div>
     ${p.bio ? `<div class="lu-pd-bio">${esc(p.bio)}</div>` : ''}
   `;

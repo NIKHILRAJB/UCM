@@ -63,17 +63,11 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   $('btn-lu-back').addEventListener('click', stepBack);
   $('btn-lu-next').addEventListener('click', stepNext);
-
-  // ── Cancel button (Step 5 only) ─────────────────────────────
   $('btn-lu-cancel').addEventListener('click', _cancelLineup);
 
-  $('xi-filters').querySelectorAll('.lu-filter-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      $('xi-filters').querySelectorAll('.lu-filter-btn')
-        .forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-    });
-  });
+  // ✅ FIX 1: xi-filters listener moved here but guarded safely
+  // The actual filter button listeners are attached inside renderStep1()
+  // when the popup opens, not at boot time — so removed from here entirely.
 
   renderStep();
 });
@@ -111,19 +105,16 @@ function autoFillState() {
 // ─── NAVIGATION ─────────────────────────────────────────────────
 function stepNext() {
   if (!validateStep(_step)) return;
-  if (_step === TOTAL) { _goToMatch(); return; }
+  if (_step === TOTAL) { goToMatch(); return; }
   _step++;
   renderStep();
 }
-
 function stepBack() {
   if (_step === 1) { window.location.href = 'friendly.html'; return; }
   _step--;
   renderStep();
 }
 
-// ─── CANCEL LINEUP (Step 5 only) ────────────────────────────────
-// Discards ALL lineup + toss data, returns to friendly.html with no save
 function _cancelLineup() {
   sessionStorage.removeItem('ucm_lineup_slot');
   sessionStorage.removeItem('ucm_match_data');
@@ -156,13 +147,13 @@ function validateStep(s) {
 // ─── RENDER STEP ────────────────────────────────────────────────
 function renderStep() {
   const main = $('lu-main-content');
+  if (!main) return;
   main.innerHTML = '';
 
   $('btn-lu-next').textContent = _step === TOTAL ? '🏏 Play Match' : 'Next →';
   $('btn-lu-next').disabled    = (_step === TOTAL && !_userDecision);
   $('btn-lu-back').textContent = _step === 1 ? '✕ Cancel' : '← Back';
 
-  // Show Cancel button ONLY on Step 5 (toss), hide on all other steps
   const cancelBtn = $('btn-lu-cancel');
   if (cancelBtn) {
     cancelBtn.style.display = _step === TOTAL ? '' : 'none';
@@ -215,6 +206,19 @@ function renderStep1(main) {
       </div>
     </div>` : ''}
   `;
+
+  // ✅ FIX 1: xi-filters listener attached here safely after innerHTML is set
+  const xiFilters = $('xi-filters');
+  if (xiFilters) {
+    xiFilters.querySelectorAll('.lu-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        xiFilters.querySelectorAll('.lu-filter-btn')
+          .forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+  }
+
   if (!locked) $('btn-open-xi').addEventListener('click', () => openXIPopup(renderStep));
 }
 
@@ -444,47 +448,6 @@ function renderStep5(main) {
   `;
 
   if (_tossOutcome) _showTossResult();
-  $('btn-lu-next').disabled = !_userDecision;
-
-  // ── Toss helpers ─────────────────────────────────────────────
-  window.pickHT = function(choice) {
-    if (_tossDone) return;
-    _userChoice = choice;
-    document.querySelectorAll('.lu-ht-btn').forEach(b => b.classList.remove('selected'));
-    document.getElementById(`btn-${choice}`)?.classList.add('selected');
-    const hint = $('toss-hint');
-    if (hint) hint.textContent = 'Tap the coin to flip!';
-  };
-
-  window.doToss = function() {
-    if (_tossDone) return;
-    const userCalls = _tossVenueSide !== 'away';
-    if (userCalls && !_userChoice) { toast('Pick Heads or Tails first!'); return; }
-
-    const coinInner = document.getElementById('lu-coin-inner');
-    if (!coinInner) return;
-
-    coinInner.classList.remove('show-heads', 'show-tails', 'flipping');
-    void coinInner.offsetWidth;
-    coinInner.classList.add('flipping');
-
-    setTimeout(() => {
-      _tossOutcome = Math.random() < 0.5 ? 'heads' : 'tails';
-
-      if (userCalls) {
-        _userWonToss = (_userChoice === _tossOutcome);
-      } else {
-        const oppCall = Math.random() < 0.5 ? 'heads' : 'tails';
-        _userWonToss  = (oppCall !== _tossOutcome);
-      }
-
-      coinInner.classList.remove('flipping');
-      coinInner.classList.add(_tossOutcome === 'heads' ? 'show-heads' : 'show-tails');
-      _tossDone = true;
-      _showTossResult();
-      _persistMatchData();
-    }, 1400);
-  };
 }
 
 function _showTossResult() {
@@ -506,11 +469,6 @@ function _showTossResult() {
     if (decTxt) decTxt.textContent = 'You won! Choose to bat or bowl';
     const bb = $('batbowl-section');
     if (bb) bb.style.display = '';
-    if (_userDecision) {
-      document.getElementById('btn-bat')?.classList.toggle('selected',  _userDecision === 'bat');
-      document.getElementById('btn-bowl')?.classList.toggle('selected', _userDecision === 'bowl');
-    }
-    document.querySelectorAll('.lu-ht-btn').forEach(b => b.disabled = true);
   } else {
     if (!_userDecision) {
       const oppDecision = Math.random() < 0.5 ? 'bat' : 'bowl';
@@ -525,17 +483,6 @@ function _showTossResult() {
   card.classList.add('visible');
   $('btn-lu-next').disabled = !_userDecision;
 }
-
-window.pickBatBowl = function(choice) {
-  if (!_tossDone) return;
-  _userDecision = choice;
-  document.querySelectorAll('.lu-batbowl-btn').forEach(b => b.classList.remove('selected'));
-  document.getElementById(`btn-${choice}`)?.classList.add('selected');
-  const decTxt = $('toss-decision-txt');
-  if (decTxt) decTxt.textContent = `You chose to ${choice} first!`;
-  $('btn-lu-next').disabled = false;
-  _persistMatchData();
-};
 
 // ─── PERSIST MATCH DATA ─────────────────────────────────────────
 function _persistMatchData() {
@@ -567,9 +514,50 @@ function _persistMatchData() {
 }
 
 // ─── GO TO MATCH ────────────────────────────────────────────────
-function _goToMatch() {
+function goToMatch() {
+  // ✅ FIX 2: Use slotIndex (camelCase) consistently — matches what friendly.js stores
+  const slotIndex = _slot?.slotIndex;
+  if (slotIndex === undefined || slotIndex === null) {
+    toast('Error: Match slot not found.');
+    return;
+  }
+
+  // ✅ FIX 3: Use the complete match data already built by _persistMatchData()
+  // instead of building a new incomplete object
   _persistMatchData();
-  window.location.href = 'match.html';
+  const completeMatchData = JSON.parse(sessionStorage.getItem('ucm_match_data') || '{}');
+
+  // ✅ FIX 4: No conditional wrapper — saveMatchData is always available
+  // since save_load.js is loaded as plain script before lineup.js
+  try {
+    window.saveMatchData(slotIndex, completeMatchData);
+    sessionStorage.setItem('UCM_CURRENT_MATCH', JSON.stringify(completeMatchData));
+
+        // ── DEBUG: Full saved data log ──────────────────────────────
+    console.group('✅ MATCH SAVED — Full Data');
+    console.log('📌 Slot Index:', slotIndex);
+    console.log('🏏 User Team:', completeMatchData.slot?.userTeam);
+    console.log('🆚 Opp Team:', completeMatchData.slot?.oppTeam);
+    console.log('⚙️ Overs:', completeMatchData.slot?.overs, '| Difficulty:', completeMatchData.slot?.difficulty);
+    console.log('👥 User XI:', completeMatchData.userXI?.map(p => p.name));
+    console.log('👥 Opp XI:', completeMatchData.oppXI?.map(p => p.name));
+    console.log('🏃 User Bat Order (IDs):', completeMatchData.userBatOrder);
+    console.log('🏃 Opp Bat Order (IDs):', completeMatchData.oppBatOrder);
+    console.log('🎳 Bowl Assign:', completeMatchData.bowlAssign);
+    console.log('🎳 Opp Bowl Assign:', completeMatchData.oppBowlAssign);
+    console.log('🎖️ User Captain ID:', completeMatchData.userCaptain);
+    console.log('🎖️ Opp Captain ID:', completeMatchData.oppCaptain);
+    console.log('🏟️ Venue ID:', completeMatchData.venueId);
+    console.log('🪙 Toss:', completeMatchData.toss);
+    console.log('📦 Full Raw Object:', completeMatchData);
+    console.groupEnd();
+    // ────────────────────────────────────────────────────────────
+
+    window.location.href = 'match.html';
+  } catch (e) {
+    console.error('Save Failed:', e);
+    toast('Failed to save match. Please try again.');
+  }
 }
 
 // ─── VENUE HELPERS ──────────────────────────────────────────────
@@ -604,3 +592,54 @@ function _formatFromOvers() {
   if (o <= 50) return 'ODI';
   return 'Test';
 }
+
+// ─── EXPOSE TO HTML (onclick) ───────────────────────────────────
+window.pickHT = function(choice) {
+  if (_tossDone) return;
+  _userChoice = choice;
+  document.querySelectorAll('.lu-ht-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById(`btn-${choice}`)?.classList.add('selected');
+  const hint = $('toss-hint');
+  if (hint) hint.textContent = 'Tap the coin to flip!';
+};
+
+window.doToss = function() {
+  if (_tossDone) return;
+  const userCalls = _tossVenueSide !== 'away';
+  if (userCalls && !_userChoice) { toast('Pick Heads or Tails first!'); return; }
+
+  const coinInner = document.getElementById('lu-coin-inner');
+  if (!coinInner) return;
+
+  coinInner.classList.remove('show-heads', 'show-tails', 'flipping');
+  void coinInner.offsetWidth;
+  coinInner.classList.add('flipping');
+
+  setTimeout(() => {
+    _tossOutcome = Math.random() < 0.5 ? 'heads' : 'tails';
+
+    if (userCalls) {
+      _userWonToss = (_userChoice === _tossOutcome);
+    } else {
+      const oppCall = Math.random() < 0.5 ? 'heads' : 'tails';
+      _userWonToss  = (oppCall !== _tossOutcome);
+    }
+
+    coinInner.classList.remove('flipping');
+    coinInner.classList.add(_tossOutcome === 'heads' ? 'show-heads' : 'show-tails');
+    _tossDone = true;
+    _showTossResult();
+    _persistMatchData();
+  }, 1400);
+};
+
+window.pickBatBowl = function(choice) {
+  if (!_tossDone) return;
+  _userDecision = choice;
+  document.querySelectorAll('.lu-batbowl-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById(`btn-${choice}`)?.classList.add('selected');
+  const decTxt = $('toss-decision-txt');
+  if (decTxt) decTxt.textContent = `You chose to ${choice} first!`;
+  $('btn-lu-next').disabled = false;
+  _persistMatchData();
+};

@@ -1,4 +1,4 @@
-// ─── sql-wasm DB ───────────────────────────────────────────────
+// ─── sql-wasm DB ───────────────────────────────────────────────────────────────
 let DB = null;
 
 async function initDB() {
@@ -35,10 +35,10 @@ async function initDB() {
   console.log('DB: Fresh DB persisted ✅');
 }
 
-// ─── Safe migration ────────────────────────────────────────────
+// ─── Safe migration ────────────────────────────────────────────────────────────
 function _migrateSchema() {
   const migrations = [
-    { table:'Teams',   col:'flag',         sql:"ALTER TABLE Teams ADD COLUMN flag TEXT DEFAULT '🏏'" },
+    { table:'Teams',   col:'flag',         sql:"ALTER TABLE Teams ADD COLUMN flag TEXT DEFAULT '🏳'" },
     { table:'Players', col:'batting',       sql:"ALTER TABLE Players ADD COLUMN batting REAL DEFAULT 0" },
     { table:'Players', col:'bowling',       sql:"ALTER TABLE Players ADD COLUMN bowling REAL DEFAULT 0" },
     { table:'Players', col:'fielding',      sql:"ALTER TABLE Players ADD COLUMN fielding REAL DEFAULT 0" },
@@ -69,7 +69,7 @@ function _migrateSchema() {
     }
   });
 
-  // ── Copy old stat column values → new column names ───────────
+  // ── Copy old stat column values → new column names ──────────────
   try {
     const cols = dbAll('PRAGMA table_info(Players)').map(c => c.name);
     if (cols.includes('bat')   && cols.includes('batting'))  DB.run('UPDATE Players SET batting  = bat   WHERE batting  = 0 AND bat   > 0');
@@ -78,56 +78,78 @@ function _migrateSchema() {
     if (cols.includes('wk')    && cols.includes('wicket'))   DB.run('UPDATE Players SET wicket   = wk    WHERE wicket   = 0 AND wk    > 0');
   } catch(e) { console.warn('DB: Column copy skipped:', e.message); }
 
-  // ── FieldPresets column rename: pdot_mod → p_dot_mod ─────────
+  // ── FieldPresets column rename: pdot_mod → p_dot_mod ────────────
   try {
     const fpCols = dbAll('PRAGMA table_info(FieldPresets)').map(c => c.name);
     if (fpCols.includes('pdot_mod') && fpCols.includes('p_dot_mod'))
       DB.run('UPDATE FieldPresets SET p_dot_mod = pdot_mod WHERE p_dot_mod = 0 AND pdot_mod != 0');
   } catch(e) { console.warn('DB: FieldPresets column copy skipped:', e.message); }
 
-  // ── ✅ Backfill player metadata for existing sessions ─────────
+  // ── ✅ BACKFILL: Player metadata ─────────────────────────────────
   try {
-    // bat_hand — every player gets Right Hand if empty
+    // bat_hand — default Right Hand if empty
     DB.run(`UPDATE Players SET bat_hand = 'Right Hand' WHERE (bat_hand IS NULL OR bat_hand = '')`);
 
-    // bowl_type — only for bowlers/allrounders
+    // bowl_type — role-aware for bowlers/allrounders
     DB.run(`UPDATE Players SET bowl_type = CASE
-      WHEN bowling >= 90 THEN 'Fast'
-      WHEN bowling >= 82 THEN 'Medium Fast'
+      WHEN bowling >= 88 THEN 'Fast'
+      WHEN bowling >= 78 THEN 'Medium Fast'
+      WHEN bowl_hand = 'Left Arm' THEN 'Left Arm Orthodox'
       ELSE 'Off Spin'
     END WHERE (bowl_type IS NULL OR bowl_type = '') AND (role = 'BOWL' OR role = 'ALL')`);
 
-    // bowl_hand
+    // bowl_hand — default Right Arm for bowlers/allrounders
     DB.run(`UPDATE Players SET bowl_hand = 'Right Arm'
       WHERE (bowl_hand IS NULL OR bowl_hand = '') AND (role = 'BOWL' OR role = 'ALL')`);
 
-    // bowl_phase
+    // bowl_phase — default Middle for bowlers/allrounders
     DB.run(`UPDATE Players SET bowl_phase = 'Middle'
       WHERE (bowl_phase IS NULL OR bowl_phase = '') AND (role = 'BOWL' OR role = 'ALL')`);
 
-    // bat_pos — derive from role
+    // ✅ UPDATED bat_pos — clean 5-value system
     DB.run(`UPDATE Players SET bat_pos = CASE
-      WHEN role = 'BAT'  AND batting >= 88 THEN 'No. 1 — Opener'
-      WHEN role = 'BAT'  AND batting >= 80 THEN 'No. 3 — Middle Order'
-      WHEN role = 'BAT'  AND batting >= 70 THEN 'No. 4 — Middle Order'
-      WHEN role = 'ALL'                     THEN 'No. 6 — Lower Middle'
-      WHEN role = 'WK'                      THEN 'No. 5 — Wicketkeeper'
-      WHEN role = 'BOWL'                    THEN 'No. 9 — Lower Order'
-      ELSE 'No. 7 — Lower Middle'
+      WHEN role = 'BAT'  AND batting >= 86 THEN 'Opener'
+      WHEN role = 'BAT'  AND batting >= 78 THEN 'Top Order'
+      WHEN role = 'BAT'  AND batting >= 68 THEN 'Middle Order'
+      WHEN role = 'BAT'                     THEN 'Lower Order'
+      WHEN role = 'ALL'  AND batting >= 78 THEN 'Middle Order'
+      WHEN role = 'ALL'  AND batting >= 65 THEN 'Finisher'
+      WHEN role = 'ALL'                     THEN 'Lower Order'
+      WHEN role = 'WK'   AND batting >= 82 THEN 'Top Order'
+      WHEN role = 'WK'   AND batting >= 74 THEN 'Middle Order'
+      WHEN role = 'WK'   AND batting >= 64 THEN 'Finisher'
+      WHEN role = 'WK'                      THEN 'Lower Order'
+      WHEN role = 'BOWL'                    THEN 'Lower Order'
+      ELSE 'Middle Order'
     END WHERE (bat_pos IS NULL OR bat_pos = '')`);
 
-    // subtype
+    // ✅ UPDATED subtype — full detailed system including WK batting position
     DB.run(`UPDATE Players SET subtype = CASE
-      WHEN role = 'BAT'                          THEN 'Top Order'
-      WHEN role = 'WK'                           THEN 'Wicketkeeper'
-      WHEN role = 'BOWL' AND bowling >= 85       THEN 'Pace'
-      WHEN role = 'BOWL' AND bowling <  85       THEN 'Spin'
-      WHEN role = 'ALL'  AND bowling >= 74       THEN 'Pace Allrounder'
-      WHEN role = 'ALL'  AND bowling <  74       THEN 'Spin Allrounder'
+      WHEN role = 'BAT'  AND batting >= 86                  THEN 'Opener'
+      WHEN role = 'BAT'  AND batting >= 78                  THEN 'Top Order'
+      WHEN role = 'BAT'  AND batting >= 68                  THEN 'Middle Order'
+      WHEN role = 'BAT'                                     THEN 'Lower Order'
+      WHEN role = 'WK'   AND batting >= 82                  THEN 'Wicketkeeper Top Order'
+      WHEN role = 'WK'   AND batting >= 74                  THEN 'Wicketkeeper Middle Order'
+      WHEN role = 'WK'   AND batting >= 64                  THEN 'Wicketkeeper Finisher'
+      WHEN role = 'WK'                                      THEN 'Wicketkeeper Lower Order'
+      WHEN role = 'BOWL' AND bowling >= 85                  THEN 'Pace'
+      WHEN role = 'BOWL' AND bowling <  85                  THEN 'Spin'
+      WHEN role = 'ALL'  AND batting >= bowling             THEN 'Batting Allrounder'
+      WHEN role = 'ALL'  AND bowling >= 74                  THEN 'Bowling Allrounder'
+      WHEN role = 'ALL'  AND bowling >= 74                  THEN 'Pace Allrounder'
+      WHEN role = 'ALL'                                     THEN 'Spin Allrounder'
       ELSE subtype
     END WHERE (subtype IS NULL OR subtype = '')`);
 
-    // ── Recalculate PS based on role ──────────────────────────
+    // ✅ FIX: fatigue_level — always reset to 'Fresh' on migration
+    // (bug fix: old default was 'High' which is wrong for a fresh session)
+    DB.run(`UPDATE Players SET
+      fatigue = 0,
+      fatigue_level = 'Fresh'
+      WHERE fatigue_level = 'High' OR fatigue_level IS NULL OR fatigue_level = ''`);
+
+    // Recalculate PS based on role
     DB.run(`UPDATE Players SET ps = CASE
       WHEN role = 'BAT'  THEN ROUND((batting*0.70)+(fielding*0.20)+(bowling*0.10), 1)
       WHEN role = 'BOWL' THEN ROUND((bowling*0.70)+(fielding*0.20)+(batting*0.10), 1)
@@ -136,7 +158,7 @@ function _migrateSchema() {
       ELSE ps
     END WHERE batting > 0 OR bowling > 0`);
 
-    // in_match_form reset to Good
+    // in_match_form reset to Good if blank
     DB.run(`UPDATE Players SET in_match_form = 'Good', form_pts = 0
       WHERE (in_match_form IS NULL OR in_match_form = '')`);
 
@@ -159,7 +181,7 @@ CREATE TABLE IF NOT EXISTS Teams (
   balance     REAL    DEFAULT 0,
   fanbase     INTEGER DEFAULT 100000,
   reputation  INTEGER DEFAULT 50,
-  flag        TEXT    DEFAULT '🏏'
+  flag        TEXT    DEFAULT '🏳'
 );
 
 CREATE TABLE IF NOT EXISTS Players (
@@ -185,7 +207,7 @@ CREATE TABLE IF NOT EXISTS Players (
   in_match_form  TEXT DEFAULT 'Good',
   form_pts       INTEGER DEFAULT 0,
   fatigue        INTEGER DEFAULT 0,
-  fatigue_level  TEXT DEFAULT 'High',
+  fatigue_level  TEXT DEFAULT 'Fresh',
   injury_status  TEXT DEFAULT 'none',
   injury_return  INTEGER DEFAULT 0,
   contract_yrs   INTEGER DEFAULT 2,
@@ -268,8 +290,16 @@ CREATE TABLE IF NOT EXISTS FieldPresets (
   console.log('DB: Schema created ✅');
 }
 
-// ─── Query Helpers ─────────────────────────────────────────────
-function dbRun(sql, params = []) { DB.run(sql, params); }
+// ─── Query Helpers ──────────────────────────────────────────────────────────────
+function dbRun(sql, params = []) {
+  const safeParams = params.map(p => (p === undefined ? null : p));
+  try {
+    return DB.run(sql, safeParams);
+  } catch (e) {
+    console.error("SQL Execution Error:", e, "Query:", sql, "Params:", safeParams);
+    throw e;
+  }
+}
 
 function dbAll(sql, params = []) {
   const stmt = DB.prepare(sql);
@@ -282,7 +312,7 @@ function dbAll(sql, params = []) {
 
 function dbGet(sql, params = []) { return dbAll(sql, params)[0] || null; }
 
-// ─── Convenience Queries ───────────────────────────────────────
+// ─── Convenience Queries ────────────────────────────────────────────────────────
 function getPlayerById(id)     { return dbGet('SELECT * FROM Players WHERE id=?', [id]); }
 function getTeamPlayers(tid)   { return dbAll('SELECT * FROM Players WHERE team_id=? ORDER BY ps DESC', [tid]); }
 function getAllTeams()          { return dbAll('SELECT * FROM Teams ORDER BY name'); }
@@ -290,19 +320,17 @@ function getIntlTeams()        { return dbAll("SELECT * FROM Teams WHERE type='i
 function getVenuesByCountry(c) { return dbAll('SELECT * FROM Venues WHERE country=?', [c]); }
 function getFriendlySlots()    { return dbAll('SELECT * FROM FriendlySlots ORDER BY slot_index'); }
 
-// ─── ✅ Player Card Helpers ────────────────────────────────────
+// ─── ✅ Player Card Helpers ──────────────────────────────────────────────────────
 
-// Tier from PS
 function getPlayerTier(ps) {
-  if (ps >= 90) return { label:'Legend',     icon:'👑' };
-  if (ps >= 80) return { label:'Elite',      icon:'⭐' };
-  if (ps >= 70) return { label:'Experienced',icon:'🔵' };
-  if (ps >= 60) return { label:'Developing', icon:'🟡' };
-  if (ps >= 50) return { label:'Prospect',   icon:'🟠' };
-  return             { label:'Rookie',      icon:'⚪' };
+  if (ps >= 90) return { label:'Legend',      icon:'👑' };
+  if (ps >= 80) return { label:'Elite',       icon:'⭐' };
+  if (ps >= 70) return { label:'Experienced', icon:'🔵' };
+  if (ps >= 60) return { label:'Developing',  icon:'🟡' };
+  if (ps >= 50) return { label:'Prospect',    icon:'🟠' };
+  return             { label:'Rookie',       icon:'⚪' };
 }
 
-// Recalculate PS on the fly (with optional form bonus)
 function calcPS(p, formBonus = 0) {
   const bat  = (p.batting  || 0) + formBonus;
   const bowl = (p.bowling  || 0) + formBonus;
@@ -317,7 +345,6 @@ function calcPS(p, formBonus = 0) {
   }
 }
 
-// In-match form state from accumulated form_pts
 function getFormState(pts) {
   if (pts >=  10) return { label:'On Fire',     icon:'🔥', bonus: +5 };
   if (pts >=   4) return { label:'Good',        icon:'🟢', bonus: +2 };
@@ -326,9 +353,7 @@ function getFormState(pts) {
   return               { label:'Out of Form', icon:'⛔', bonus: -8 };
 }
 
-// Update form_pts after each ball outcome and persist
 function updatePlayerForm(playerId, ballOutcome) {
-  // ballOutcome: 'dot'|'1'|'2'|'3'|'4'|'6'|'wicket_taken'|'wide'|'noball'|'boundary_conceded'|'wicket_lost'
   const delta = {
     dot:               -1,
     '1':                0,
@@ -345,13 +370,12 @@ function updatePlayerForm(playerId, ballOutcome) {
 
   const p = dbGet('SELECT form_pts FROM Players WHERE id=?', [playerId]);
   if (!p) return;
-  const newPts  = (p.form_pts || 0) + delta;
-  const state   = getFormState(newPts);
+  const newPts = (p.form_pts || 0) + delta;
+  const state  = getFormState(newPts);
   dbRun('UPDATE Players SET form_pts=?, in_match_form=? WHERE id=?',
         [newPts, state.label, playerId]);
 }
 
-// Reset form for all players at start of friendly match
 function resetMatchForm(teamAId, teamBId) {
   const ids = [
     ...dbAll('SELECT id FROM Players WHERE team_id=?', [teamAId]),
@@ -359,12 +383,12 @@ function resetMatchForm(teamAId, teamBId) {
   ].map(r => r.id);
   ids.forEach(id =>
     dbRun(`UPDATE Players SET in_match_form='Good', form_pts=0,
-           fatigue=0, fatigue_level='High', injury_status='none'
+           fatigue=0, fatigue_level='Fresh', injury_status='none'
            WHERE id=?`, [id])
   );
 }
 
-// ─── Persist / Restore ─────────────────────────────────────────
+// ─── Persist / Restore ──────────────────────────────────────────────────────────
 function persistSession() {
   const uid = window._ucmUID || 'guest';
   const key = `UCM_${uid}_session`;
@@ -384,19 +408,19 @@ function base64ToUint8Array(b64) {
   return bytes;
 }
 
-// ─── Global exposure ───────────────────────────────────────────
-window.dbAll           = dbAll;
-window.dbGet           = dbGet;
-window.dbRun           = dbRun;
-window.initDB          = initDB;
-window.persistSession  = persistSession;
-window.getPlayerById   = getPlayerById;
-window.getTeamPlayers  = getTeamPlayers;
-window.getAllTeams      = getAllTeams;
-window.getIntlTeams    = getIntlTeams;
-window.getFriendlySlots= getFriendlySlots;
-window.getPlayerTier   = getPlayerTier;
-window.calcPS          = calcPS;
-window.getFormState    = getFormState;
-window.updatePlayerForm= updatePlayerForm;
-window.resetMatchForm  = resetMatchForm;
+// ─── Global exposure ────────────────────────────────────────────────────────────
+window.dbAll            = dbAll;
+window.dbGet            = dbGet;
+window.dbRun            = dbRun;
+window.initDB           = initDB;
+window.persistSession   = persistSession;
+window.getPlayerById    = getPlayerById;
+window.getTeamPlayers   = getTeamPlayers;
+window.getAllTeams       = getAllTeams;
+window.getIntlTeams     = getIntlTeams;
+window.getFriendlySlots = getFriendlySlots;
+window.getPlayerTier    = getPlayerTier;
+window.calcPS           = calcPS;
+window.getFormState     = getFormState;
+window.updatePlayerForm = updatePlayerForm;
+window.resetMatchForm   = resetMatchForm;

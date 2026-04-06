@@ -1,6 +1,7 @@
 // ─── lineup-ai.js ─────────────────────────────────────────────
 import { num, isWK, maxOvers } from './lineup-helpers.js';
 
+
 // ══════════════════════════════════════════
 // BATTING ORDER AI
 // ══════════════════════════════════════════
@@ -13,24 +14,30 @@ export function play11AI_batting(xi, difficulty, format) {
   }
   if (diff === 'medium') {
     return [...xi].sort((a,b) => {
-      const pd = _batPosPriority(a.bat_pos) - _batPosPriority(b.bat_pos);
+      const pd = _batPosPriority(a) - _batPosPriority(b);
       return pd !== 0 ? pd : num(b.batting) - num(a.batting);
     }).map(p => p.id);
   }
   return _hardBattingOrder(xi, fmt);
 }
 
-function _batPosPriority(pos) {
-  const p = (pos || '').toUpperCase();
-  if (p.includes('OPEN'))                          return 1;
-  if (p.includes('TOP'))                           return 2;
-  if (p.includes('MIDDLE'))                        return 3;
-  if (p.includes('ALL') || p.includes('ROUND'))   return 4;
-  if (p.includes('FINISH') || p.includes('LOWER'))return 5;
-  if (p.includes('WK') || p.includes('KEEP'))     return 6;
-  if (p.includes('BOWL') || p.includes('TAIL'))   return 7;
-  return 4;
+
+// ✅ FIX 1: Updated to match new clean bat_pos values
+// Old code checked for "ROUND", "KEEP", "TAIL" which never exist anymore
+function _batPosPriority(p) {
+  const pos     = (p.bat_pos || '').toUpperCase();
+  const subtype = (p.subtype || '').toUpperCase();
+  const role    = (p.role    || '').toUpperCase();
+
+  if (pos.includes('OPEN')   || subtype.includes('OPEN'))    return 1;
+  if (pos.includes('TOP')    || subtype.includes('TOP'))     return 2;
+  if (pos.includes('MIDDLE') || subtype.includes('MIDDLE'))  return 3;
+  if (pos.includes('FINISH') || subtype.includes('FINISH'))  return 4;
+  if (pos.includes('LOWER')  || subtype.includes('LOWER'))   return 5;
+  if (role === 'BOWL')                                        return 7;
+  return 6; // fallback
 }
+
 
 function _hardBattingOrder(xi, fmt) {
   const tagged = xi.map(p => ({ ...p, _tag: _classifyBatter(p, fmt) }));
@@ -57,35 +64,59 @@ function _hardBattingOrder(xi, fmt) {
   return result;
 }
 
+
+// ✅ FIX 2 + FIX 3: Finisher WK gets correct slot, WK check no longer overrides batting position
 function _classifyBatter(p, fmt) {
-  const pos  = (p.bat_pos || '').toUpperCase();
-  const role = (p.role    || '').toUpperCase();
-  const bat  = num(p.batting);
-  if (isWK(p))                                              return 'wk';
-  if (role.includes('BOWL') && !role.includes('ALL'))       return 'tail';
-  if (pos.includes('OPEN'))                                 return 'opener';
-  if (pos.includes('ANCHOR') || (pos.includes('TOP') && bat >= 75)) return 'anchor';
-  if (pos.includes('TOP'))                                  return 'top';
-  if (pos.includes('FINISH') || pos.includes('PINCH'))      return 'finisher';
-  if (role.includes('ALL') || pos.includes('ALL'))          return 'allrounder';
-  if (pos.includes('LOWER') || pos.includes('MIDDLE'))      return 'lowerorder';
-  if (bat >= 75) return 'top';
+  const pos     = (p.bat_pos || '').toUpperCase();
+  const subtype = (p.subtype || '').toUpperCase();
+  const role    = (p.role    || '').toUpperCase();
+  const bat     = num(p.batting);
+
+  // Pure bowler — always tail
+  if (role === 'BOWL') return 'tail';
+
+  // ✅ FIX 3: WK with specific batting subtypes get correct batting slot
+  // instead of always being dumped in generic 'wk' slot
+  if (isWK(p)) {
+    if (subtype.includes('TOP')    || pos.includes('TOP'))    return 'top';
+    if (subtype.includes('OPEN')   || pos.includes('OPEN'))   return 'opener';
+    if (subtype.includes('FINISH') || pos.includes('FINISH')) return 'finisher';
+    if (bat >= 80) return 'top';
+    if (bat >= 70) return 'wk';
+    return 'wk';
+  }
+
+  // ✅ FIX 2: "PINCH" removed — only "FINISH" needed for new bat_pos values
+  if (pos.includes('OPEN')   || subtype.includes('OPEN'))   return 'opener';
+  if (pos.includes('FINISH') || subtype.includes('FINISH')) return 'finisher';
+
+  if (pos.includes('TOP') || subtype.includes('TOP')) {
+    return (bat >= 75) ? 'anchor' : 'top';
+  }
+
+  if (role.includes('ALL') || subtype.includes('ALL')) return 'allrounder';
+
+  if (pos.includes('MIDDLE')) return 'lowerorder';
+  if (pos.includes('LOWER'))  return 'lowerorder';
+
+  // Stat-based fallback
+  if (bat >= 80) return 'anchor';
+  if (bat >= 70) return 'top';
   if (bat >= 55) return 'allrounder';
   return 'lowerorder';
 }
+
 
 // ══════════════════════════════════════════
 // BOWLING PLAN AI
 // Key rule: no bowler gets consecutive overs
 // ══════════════════════════════════════════
 
-// Check if a bowler CAN bowl a given over (consecutive rule)
 function _canBowlOver(assign, pid, ov) {
   const mySet = new Set((assign[pid] || []).map(Number));
   return !mySet.has(ov - 1) && !mySet.has(ov + 1);
 }
 
-// Sync pool to reflect current assign state
 function _syncPool(pool, assign, totalOvers) {
   const taken = new Set(Object.values(assign).flat().map(Number));
   pool.length = 0;
@@ -94,17 +125,14 @@ function _syncPool(pool, assign, totalOvers) {
   }
 }
 
-// Core assign: try to assign each over in `overs` to a bowler in `bowlers`
-// Respects cap + consecutive rule
-// Returns array of overs that could NOT be assigned
 function _assignOversToPool(bowlers, overs, assign, cap) {
   const remaining = [];
   for (const ov of overs) {
     let assigned = false;
     for (const p of bowlers) {
       if (!assign[p.id]) assign[p.id] = [];
-      if (assign[p.id].length >= cap)          continue; // over cap
-      if (!_canBowlOver(assign, p.id, ov))    continue; // consecutive rule
+      if (assign[p.id].length >= cap)       continue;
+      if (!_canBowlOver(assign, p.id, ov))  continue;
       assign[p.id].push(ov);
       assign[p.id].sort((a,b) => a - b);
       assigned = true;
@@ -124,10 +152,9 @@ function _getPhases(totalOvers, fmt) {
   };
   if (totalOvers <= 20) return {
     powerplay: [1,2,3,4,5,6],
-    middle:    Array.from({length:9}, (_,i) => i+7),   // 7–15
+    middle:    Array.from({length:9}, (_,i) => i+7),
     death:     [16,17,18,19,20]
   };
-  // ODI
   return {
     powerplay: Array.from({length:10}, (_,i) => i+1),
     middle:    Array.from({length:30}, (_,i) => i+11),
@@ -135,49 +162,49 @@ function _getPhases(totalOvers, fmt) {
   };
 }
 
+// ✅ FIX 7 (Improvement 1): Removed bowl_phase from type checks
+// bowl_phase stores "Middle"/"Powerplay"/"Death" — never "PACE" or "SPIN"
 function _isPace(p) {
-  const t = (p.bowl_type || p.bowl_phase || p.role || '').toUpperCase();
+  const t = (p.bowl_type || p.subtype || p.role || '').toUpperCase();
   return t.includes('PACE') || t.includes('FAST') || t.includes('MEDIUM');
 }
 
 function _isSpin(p) {
-  const t = (p.bowl_type || p.bowl_phase || p.role || '').toUpperCase();
-  return t.includes('SPIN') || t.includes('OFF') || t.includes('LEG') || t.includes('SLOW');
+  const t = (p.bowl_type || p.subtype || p.role || '').toUpperCase();
+  return t.includes('SPIN') || t.includes('OFF') || t.includes('LEG')
+      || t.includes('ORTHODOX') || t.includes('SLOW');
 }
 
+// ✅ FIX 5: Second pass no longer reverses eligible
+// Old code reversed eligible on second pass — giving worst bowler remaining overs for USER team
 function _assignEasy(eligible, pool, assign, cap, totalOvers) {
   _assignOversToPool(eligible, [...pool], assign, cap);
   _syncPool(pool, assign, totalOvers);
-  // Second pass for leftovers
   if (pool.length > 0) {
-    _assignOversToPool([...eligible].reverse(), [...pool], assign, cap);
+    _assignOversToPool(eligible, [...pool], assign, cap); // ✅ best bowlers fill leftovers too
     _syncPool(pool, assign, totalOvers);
   }
 }
 
 function _assignMedium(eligible, pool, assign, cap, totalOvers, fmt) {
-  const phases     = _getPhases(totalOvers, fmt);
-  const pace       = eligible.filter(p => _isPace(p));
-  const spin       = eligible.filter(p => _isSpin(p));
-  const general    = eligible.filter(p => !_isPace(p) && !_isSpin(p));
+  const phases  = _getPhases(totalOvers, fmt);
+  const pace    = eligible.filter(p => _isPace(p));
+  const spin    = eligible.filter(p => _isSpin(p));
+  const general = eligible.filter(p => !_isPace(p) && !_isSpin(p));
 
-  // Powerplay → pace (fallback: all)
   _assignOversToPool(pace.length ? pace : eligible,
     phases.powerplay.filter(o => pool.includes(o)), assign, cap);
   _syncPool(pool, assign, totalOvers);
 
-  // Middle → spin (fallback: all)
   _assignOversToPool(spin.length ? spin : eligible,
     phases.middle.filter(o => pool.includes(o)), assign, cap);
   _syncPool(pool, assign, totalOvers);
 
-  // Death → pace + general (fallback: all)
   const deathBowlers = [...pace,...general].length ? [...pace,...general] : eligible;
   _assignOversToPool(deathBowlers,
     phases.death.filter(o => pool.includes(o)), assign, cap);
   _syncPool(pool, assign, totalOvers);
 
-  // Fill any remaining
   if (pool.length > 0) {
     _assignOversToPool(eligible, [...pool], assign, cap);
     _syncPool(pool, assign, totalOvers);
@@ -188,30 +215,33 @@ function _assignHard(eligible, pool, assign, cap, totalOvers, fmt) {
   const phases = _getPhases(totalOvers, fmt);
   const pace   = eligible.filter(p => _isPace(p)).sort((a,b) => num(b.ps)-num(a.ps));
   const spin   = eligible.filter(p => _isSpin(p)).sort((a,b) => num(b.ps)-num(a.ps));
-  const allr   = eligible.filter(p => (p.role||'').toUpperCase().includes('ALL'))
-                         .sort((a,b) => num(b.ps)-num(a.ps));
+
+  // ✅ FIX 8 (Improvement 2): Only allrounders who can actually bowl (bowling >= 65)
+  const allr = eligible
+    .filter(p => (p.role||'').toUpperCase().includes('ALL') && num(p.bowling) >= 65)
+    .sort((a,b) => num(b.ps)-num(a.ps));
 
   if (fmt === 'T20' || fmt === 'T10' || fmt === 'T5') {
     const deathPace  = pace.slice(0,2);
     const ppPace     = pace.length > 2 ? pace.slice(2) : pace;
     const midBowlers = [...spin,...allr].length ? [...spin,...allr] : eligible;
 
-    // Death overs first (reserved for best 2 pacers)
     _assignOversToPool(deathPace.length ? deathPace : pace,
       phases.death.filter(o => pool.includes(o)), assign, cap);
     _syncPool(pool, assign, totalOvers);
 
-    // Powerplay → remaining pace
-    _assignOversToPool(ppPace,
+    _assignOversToPool(ppPace.length ? ppPace : pace,
       phases.powerplay.filter(o => pool.includes(o)), assign, cap);
     _syncPool(pool, assign, totalOvers);
 
-    // Middle → spin + allrounders
     _assignOversToPool(midBowlers,
       phases.middle.filter(o => pool.includes(o)), assign, cap);
     _syncPool(pool, assign, totalOvers);
 
   } else if (fmt === 'ODI') {
+    // ✅ FIX 4: Death overs now use best 2 PACE bowlers, not just any top 2
+    const deathBowlers = pace.length >= 2 ? pace.slice(0,2) : eligible.slice(0,2);
+
     _assignOversToPool(pace.length ? pace : eligible,
       phases.powerplay.filter(o => pool.includes(o)), assign, cap);
     _syncPool(pool, assign, totalOvers);
@@ -220,7 +250,7 @@ function _assignHard(eligible, pool, assign, cap, totalOvers, fmt) {
       phases.middle.filter(o => pool.includes(o)), assign, cap);
     _syncPool(pool, assign, totalOvers);
 
-    _assignOversToPool(eligible.slice(0,2),
+    _assignOversToPool(deathBowlers,
       phases.death.filter(o => pool.includes(o)), assign, cap);
     _syncPool(pool, assign, totalOvers);
 
@@ -231,34 +261,32 @@ function _assignHard(eligible, pool, assign, cap, totalOvers, fmt) {
     return;
   }
 
-  // Fill any remaining overs
   if (pool.length > 0) {
     _assignOversToPool(eligible, [...pool], assign, cap);
     _syncPool(pool, assign, totalOvers);
   }
 }
 
-// ── Main export — single clean export, no duplicate ───────────
+
+// ── Main export ────────────────────────────────────────────────
+// ✅ FIX 9 (Improvement 3): Guard for totalOvers = 0 or undefined
 export function play11AI_bowling(xi, difficulty, format, totalOvers, existingAssign = {}) {
+  if (!totalOvers || totalOvers < 1) return existingAssign;
+
   const diff = (difficulty || 'medium').toLowerCase();
   const fmt  = (format     || 'T20').toUpperCase();
   const cap  = maxOvers(totalOvers);
 
-  // Deep clone existing assignments — never mutate input
   const assign = {};
   Object.entries(existingAssign).forEach(([pid, ovs]) => {
     assign[pid] = [...ovs.map(Number)];
   });
 
-  // Build pool of unassigned overs only
   const pool = [];
   _syncPool(pool, assign, totalOvers);
-  // But pool starts with ALL overs; remove already assigned
-  // _syncPool does exactly that ↑
 
-  if (!pool.length) return assign; // all overs already manually assigned
+  if (!pool.length) return assign;
 
-  // Eligible bowlers: no WK, sorted by bowling DESC
   const eligible = [...xi]
     .filter(p => !isWK(p))
     .sort((a,b) => num(b.bowling) - num(a.bowling));
@@ -270,31 +298,44 @@ export function play11AI_bowling(xi, difficulty, format, totalOvers, existingAss
   /* hard */               _assignHard(eligible, pool, assign, cap, totalOvers, fmt);     return assign;
 }
 
+
 // ══════════════════════════════════════════
 // OPPONENT AI
 // ══════════════════════════════════════════
+// ✅ FIX 10 (Improvement 4) + FIX 6: Cleaned up easy mode
+// No more duplicated pool/sync/assign logic
+// Uses a reverse-sorted XI passed into play11AI_bowling
+// Missing _syncPool after second pass is now gone entirely
 export function play11AI_opponent(xi, difficulty, format, totalOvers) {
   const diff     = (difficulty || 'medium').toLowerCase();
   const batOrder = play11AI_batting(xi, difficulty, format);
 
   let bowlAssign;
-  if (diff === 'easy') {
-    // Intentionally suboptimal — worst bowlers get key overs
-    const cap     = maxOvers(totalOvers);
-    const assign  = {};
-    const bowlers = [...xi]
-      .filter(p => !isWK(p))
-      .sort((a,b) => num(a.bowling) - num(b.bowling)); // ASC = worst first
 
-    const pool = [];
+  if (diff === 'easy') {
+    // Easy opponent: worst bowlers get the overs
+    // Achieved by passing a reversed XI (worst bowling first) to the easy assign path
+    const reversedXI = [...xi]
+      .filter(p => !isWK(p))
+      .sort((a,b) => num(a.bowling) - num(b.bowling)) // ✅ ASC = worst first
+      .concat(xi.filter(p => isWK(p)));               // WK at end
+
+    const cap    = maxOvers(totalOvers);
+    const assign = {};
+    const pool   = [];
     _syncPool(pool, assign, totalOvers);
-    _assignOversToPool(bowlers, [...pool], assign, cap);
-    _syncPool(pool, assign, totalOvers);
+
+    _assignOversToPool(reversedXI, [...pool], assign, cap);
+    _syncPool(pool, assign, totalOvers); // ✅ FIX 6: Always sync after every pass
+
     if (pool.length > 0) {
-      _assignOversToPool([...bowlers].reverse(), [...pool], assign, cap);
+      _assignOversToPool(reversedXI, [...pool], assign, cap);
+      _syncPool(pool, assign, totalOvers); // ✅ FIX 6: Sync after second pass too
     }
+
     bowlAssign = assign;
   } else {
+    // Medium + Hard: opponent uses same smart bowling logic as user
     bowlAssign = play11AI_bowling(xi, difficulty, format, totalOvers, {});
   }
 

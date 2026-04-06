@@ -1,3 +1,5 @@
+// ─── friendly.js 
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
@@ -33,7 +35,7 @@ let _allTeams = [];
 let _deleteIdx = null;
 let _bootDone = false;
 
-const wiz = { step:1, userTeam:null, oppTeam:null, overs:null, diff:null };
+const wiz = { step: 1, userTeam: null, oppTeam: null, overs: null, diff: null };
 
 window.addEventListener('DOMContentLoaded', async () => {
   try {
@@ -84,6 +86,7 @@ function failInitialLoad() {
   `;
 }
 
+// ✅ UPDATED: renderSlots with Smart Resume Logic
 function renderSlots() {
   const wrap = $('fm-slots-wrap');
   const bar = $('fm-bottom-bar');
@@ -99,28 +102,39 @@ function renderSlots() {
 
     if (s.slot_name) {
       card.className = 'fm-card-filled';
-      card.addEventListener('click', () => resumeSlot(i));
+      
+      // Smart Check: is the match ready or does it need lineup setup?
+      const isReady = typeof hasCompleteMatch === 'function' ? hasCompleteMatch(i) : false;
+      const badgeClass = isReady ? 'fm-slot-badge ready' : 'fm-slot-badge incomplete';
+      const badgeText = isReady ? 'Ready to Play' : 'Needs Setup';
+      const btnText = isReady ? '🏏 Play Match' : '⚙️ Resume';
 
-      const diffDot = { easy:'🟢', medium:'🟡', hard:'🔴' }[s.difficulty] || '🟡';
+      const diffDot = { easy: '🟢', medium: '🟡', hard: '🔴' }[s.difficulty] || '🟡';
       const diffCls = 'fm-card-diff-' + (s.difficulty || 'medium');
       const overTx = Number(s.overs) > 0 ? `T20 · ${s.overs} ov` : 'Test';
 
-      const info = el('div','fm-card-info',`
-        <div class="fm-card-match-id">${x(s.slot_name)}</div>
-        <div class="fm-card-teams">${x(teamName(s.user_team))} vs ${x(teamName(s.opp_team))}</div>
-        <div class="fm-card-sub">
-          <span>${x(overTx)}</span>
-          <span class="${diffCls}">${diffDot} ${x(capitalize(s.difficulty))}</span>
-        </div>`);
+      card.innerHTML = `
+        <div class="fm-card-info">
+          <div class="fm-slot-header">
+            <span class="fm-card-match-id">${x(s.slot_name)}</span>
+            
+          </div>
+          <div class="fm-card-teams">${x(teamName(s.user_team))} vs ${x(teamName(s.opp_team))}</div>
+          <div class="fm-card-sub">
+            <span>${x(overTx)}</span>
+            <span class="${diffCls}">${diffDot} ${x(capitalize(s.difficulty))}</span>
+          </div>
+        </div>
+      `;
 
-      const btn = el('button','fm-resume-btn','Resume →');
-      btn.addEventListener('click', e => {
+      const btn = el('button', 'fm-resume-btn', btnText);
+      btn.addEventListener('click', (e) => {
         e.stopPropagation();
         resumeSlot(i);
       });
 
-      card.appendChild(info);
       card.appendChild(btn);
+      card.onclick = () => resumeSlot(i);
     } else {
       hasEmpty = true;
       card.className = 'fm-card-empty';
@@ -157,18 +171,18 @@ function renderSettingsList() {
 
     if (s.slot_name) {
       const overTx = Number(s.overs) > 0 ? `${s.overs} Overs` : 'Test';
-      const info = el('div','',`
-        <div class="fm-slot-label">Slot ${i+1}</div>
+      const info = el('div', '', `
+        <div class="fm-slot-label">Slot ${i + 1}</div>
         <div class="fm-slot-name">${x(s.slot_name)}</div>
         <div class="fm-slot-meta">${x(teamName(s.user_team))} vs ${x(teamName(s.opp_team))} · ${x(overTx)}</div>`);
 
-      const delBtn = el('button','fm-del-row-btn','🗑 Delete');
+      const delBtn = el('button', 'fm-del-row-btn', '🗑 Delete');
       delBtn.addEventListener('click', () => askDelete(i, s.slot_name));
 
       row.appendChild(info);
       row.appendChild(delBtn);
     } else {
-      row.innerHTML = `<div><div class="fm-slot-label">Slot ${i+1}</div><div class="fm-slot-empty-txt">— Empty —</div></div>`;
+      row.innerHTML = `<div><div class="fm-slot-label">Slot ${i + 1}</div><div class="fm-slot-empty-txt">— Empty —</div></div>`;
     }
 
     list.appendChild(row);
@@ -198,7 +212,7 @@ function doDelete() {
 
 function openWizard() {
   const slots = getSlots();
-  if ([0,1,2].every(i => !!slots[i].slot_name)) {
+  if ([0, 1, 2].every(i => !!slots[i].slot_name)) {
     alert('All 3 slots are full.\nOpen ⚙️ Settings to delete one first.');
     return;
   }
@@ -266,7 +280,7 @@ function renderWizStep() {
   $('wizard-title').textContent = titles[wiz.step];
   $('btn-wizard-ok').textContent = wiz.step === 5 ? '🏏 Start Match →' : 'OK →';
 
-  ['panel-teams','panel-overs','panel-diff','panel-confirm'].forEach(id => hide(id));
+  ['panel-teams', 'panel-overs', 'panel-diff', 'panel-confirm'].forEach(id => hide(id));
 
   if (wiz.step <= 2) {
     show('panel-teams');
@@ -350,7 +364,7 @@ function syncDiffList() {
 function buildConfirmPanel() {
   const ta = _allTeams.find(t => t.id === wiz.userTeam);
   const tb = _allTeams.find(t => t.id === wiz.oppTeam);
-  const diffLabel = {easy:'🟢 Easy', medium:'🟡 Medium', hard:'🔴 Hard'}[wiz.diff];
+  const diffLabel = { easy: '🟢 Easy', medium: '🟡 Medium', hard: '🔴 Hard' }[wiz.diff];
   const matchId = makeMatchId(wiz.userTeam, wiz.oppTeam, wiz.overs);
 
   $('cf-team-a').innerHTML = `<span class="fm-confirm-flag">${ta?.flag || '🏏'}</span>${x(ta?.name || wiz.userTeam)}`;
@@ -360,7 +374,6 @@ function buildConfirmPanel() {
   $('cf-match-id').textContent = matchId;
 }
 
-// ── CHANGED: saves slot then goes to lineup.html ─────────────
 function commitMatch() {
   const slots = getSlots();
   let emptyIdx = -1;
@@ -374,12 +387,13 @@ function commitMatch() {
   const matchId = makeMatchId(wiz.userTeam, wiz.oppTeam, wiz.overs);
   saveFriendlySlot(emptyIdx, matchId, wiz.userTeam, wiz.oppTeam, parseInt(wiz.overs, 10), wiz.diff, {});
 
+  // For a brand new match, always go to lineup first
   sessionStorage.setItem('ucm_lineup_slot', JSON.stringify({
-    slotIndex:  emptyIdx,
-    slotName:   matchId,
-    userTeam:   wiz.userTeam,
-    oppTeam:    wiz.oppTeam,
-    overs:      parseInt(wiz.overs, 10),
+    slotIndex: emptyIdx,
+    slotName: matchId,
+    userTeam: wiz.userTeam,
+    oppTeam: wiz.oppTeam,
+    overs: parseInt(wiz.overs, 10),
     difficulty: wiz.diff,
     matchState: {}
   }));
@@ -388,28 +402,40 @@ function commitMatch() {
   window.location.href = 'lineup.html';
 }
 
-// ── CHANGED: saves context then goes to lineup.html ──────────
-function resumeSlot(i) {
-  const s = getSlots()[i];
+// ✅ UPDATED: SMART RESUME 
+window.resumeSlot = function(slotIndex) {
+  const slots = getSlots();
+  const s = slots[slotIndex];
   if (!s || !s.slot_name) { openWizard(); return; }
 
-  sessionStorage.setItem('ucm_lineup_slot', JSON.stringify({
-    slotIndex:  i,
-    slotName:   s.slot_name,
-    userTeam:   s.user_team,
-    oppTeam:    s.opp_team,
-    overs:      Number(s.overs),
-    difficulty: s.difficulty,
-    matchState: s.match_state || {}
-  }));
+  const isReady = typeof hasCompleteMatch === 'function' ? hasCompleteMatch(slotIndex) : false;
 
-  window.location.href = 'lineup.html';
-}
+  if (isReady) {
+    // ✅ COMPLETE → match.html directly
+    sessionStorage.setItem('ucm_lineup_slot', JSON.stringify({
+      slot_index: slotIndex,
+      slotName: s.slot_name || 'Match Ready'
+    }));
+    window.location.href = 'match.html';
+  } else {
+    // ❌ INCOMPLETE → lineup.html
+    sessionStorage.setItem('ucm_lineup_slot', JSON.stringify({
+      slotIndex: slotIndex,
+      slotName: s.slot_name,
+      userTeam: s.user_team,
+      oppTeam: s.opp_team,
+      overs: Number(s.overs),
+      difficulty: s.difficulty,
+      matchState: s.match_state || {}
+    }));
+    window.location.href = 'lineup.html';
+  }
+};
 
-// ── ALL HELPERS UNCHANGED ─────────────────────────────────────
+// ── ALL HELPERS ─────────────────────────────────────
 function getSlots() {
   const raw = getFriendlySlots() || [];
-  const map = {0: emptyRow(0), 1: emptyRow(1), 2: emptyRow(2)};
+  const map = { 0: emptyRow(0), 1: emptyRow(1), 2: emptyRow(2) };
 
   raw.forEach(r => {
     const i = Number(r.slot_index);
@@ -420,7 +446,7 @@ function getSlots() {
 }
 
 function emptyRow(i) {
-  return { slot_index: i, slot_name: '', user_team: '', opp_team: '', overs: 20, difficulty: 'medium', match_state: '{}' };
+  return { slot_index: i, slot_name: '', user_team: '', opp_team: '', overs: 20, difficulty: 'medium', match_state: {} };
 }
 
 function loadAllTeams() {
@@ -432,8 +458,7 @@ function teamName(tid) {
   if (!tid) return '—';
   const t = _allTeams.find(t => t.id === tid);
   if (t) return t.name;
-  const row = dbGet('SELECT name FROM Teams WHERE id=?', [tid]);
-  return row ? row.name : tid;
+  return tid;
 }
 
 function teamCode(id) {
@@ -442,10 +467,10 @@ function teamCode(id) {
 
 function flagFromId(id) {
   const m = {
-    t_ind:'🇮🇳', t_aus:'🇦🇺', t_eng:'🏴', t_pak:'🇵🇰', t_sa:'🇿🇦', t_nz:'🇳🇿',
-    t_wi:'🏏', t_sl:'🇱🇰', t_ban:'🇧🇩', t_afg:'🇦🇫', t_zim:'🇿🇼', t_ire:'🇮🇪',
-    t_sco:'🏴', t_ned:'🇳🇱', t_uae:'🇦🇪', t_nep:'🇳🇵', t_usa:'🇺🇸',
-    t_can:'🇨🇦', t_png:'🇵🇬', t_nam:'🇳🇦'
+    t_ind: '🇮🇳', t_aus: '🇦🇺', t_eng: '🏴', t_pak: '🇵🇰', t_sa: '🇿🇦', t_nz: '🇳🇿',
+    t_wi: '🏏', t_sl: '🇱🇰', t_ban: '🇧🇩', t_afg: '🇦🇫', t_zim: '🇿🇼', t_ire: '🇮🇪',
+    t_sco: '🏴', t_ned: '🇳🇱', t_uae: '🇦🇪', t_nep: '🇳🇵', t_usa: '🇺🇸',
+    t_can: '🇨🇦', t_png: '🇵🇬', t_nam: '🇳🇦'
   };
   return m[id] || '🏏';
 }
@@ -456,7 +481,7 @@ function makeMatchId(teamA, teamB, overs) {
   const pfx = `${ca}-${cb}-${fmt}`;
   const all = getFriendlySlots() || [];
   const cnt = all.filter(s => s.slot_name && s.slot_name.startsWith(pfx)).length;
-  return `${pfx}-${String(cnt + 1).padStart(3,'0')}`;
+  return `${pfx}-${String(cnt + 1).padStart(3, '0')}`;
 }
 
 const $ = id => document.getElementById(id);
@@ -468,7 +493,7 @@ const el = (tag, cls, html) => {
   e.innerHTML = html;
   return e;
 };
-const x = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const x = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const capitalize = s => s ? s[0].toUpperCase() + s.slice(1) : '';
 const wizErr = msg => {
   const e = $('fm-wizard-err');

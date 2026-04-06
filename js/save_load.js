@@ -1,3 +1,5 @@
+// ─── save- load.js 
+
 function _uid()         { return window._ucmUID || 'guest'; }
 function _key(name)     { return `UCM_${_uid()}_${name}`; }
 function _slotKey(slot) { return `UCM_${_uid()}_slot_${slot}`; }
@@ -142,6 +144,37 @@ function loadFriendlySlot(index) {
   const slot = dbGet('SELECT * FROM FriendlySlots WHERE slot_index=?', [index]);
   if (!slot || !slot.slot_name) return;
   showScreen('screen-match');
+}
+// ─── MATCH PERSISTENCE (Lineup → Friendly → Match) ───────────────
+// Save COMPLETE lineup + toss to FriendlySlots.match_state (PERMANENT)
+function saveMatchData(slotIndex, matchData) {
+  if (slotIndex === undefined || slotIndex === null) {
+    console.error("Cannot save: slotIndex is undefined");
+    return;
+  }
+
+  const jsonStr = JSON.stringify(matchData || {});
+  
+  dbRun(`
+    UPDATE FriendlySlots 
+    SET match_state = ? 
+    WHERE slot_index = ?`,
+    [jsonStr, slotIndex]
+  );
+  
+  persistSession();
+}
+
+// Load COMPLETE match data from FriendlySlots.match_state
+function loadMatchData(slotIndex) {
+  const slot = dbGet('SELECT match_state FROM FriendlySlots WHERE slot_index = ?', [slotIndex]);
+  return slot?.match_state ? JSON.parse(slot.match_state) : null;
+}
+
+// Check if slot has complete match ready-to-play
+function hasCompleteMatch(slotIndex) {
+  const data = loadMatchData(slotIndex);
+  return data && data.toss && data.toss.userDecision;
 }
 
 function simpleChecksum(arr) {

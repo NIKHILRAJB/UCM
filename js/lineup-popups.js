@@ -178,145 +178,158 @@ function _confirmXI(onConfirm) {
   if (onConfirm) onConfirm();
 }
 
-// ═══════════════════════════════════════════
-// PLAYER DETAIL  ✅ Captain section added
+//  ════════════════════════════════════════
+// PLAYER DETAIL  ✅ batInfo / bowlInfo fix
 // ═══════════════════════════════════════════
 export function openPlayerDetail(p) {
-  $('pd-title').textContent = p.name;
+  document.getElementById('pd-title').textContent = p.name;
 
-  const natDisplay = (p.nationality || p.team_id || '—').toUpperCase();
+  const natDisplay = (p.nationality || p.team_id || p.teamid || '').toUpperCase();
 
-  const batInfo = [
-    p.bat_hand ? `${p.bat_hand} Bat` : null,
-    p.bat_pos  ? p.bat_pos           : null,
-  ].filter(Boolean).join(' · ');
+  // ── Resolve DB column names (support both camelCase and snake_case) ──
+  const batHand  = p.bat_hand  || p.bathand  || 'Right Hand';
+  const batPos   = p.bat_position || p.batpos || p.bat_pos || null;
+  const bowlHand = p.bowl_hand || p.bowlhand || null;
+  const bowlType = p.bowl_type || p.bowltype || null;
 
-  const isBatter  = !p.bowl_type && !p.bowl_hand;
+  // ── Batting info ──────────────────────────────────────────
+  const batParts = [
+    batHand ? `${batHand} Bat` : null,
+    batPos  ? batPos           : null,
+  ].filter(Boolean);
+  const batInfo = batParts.join(' · ');   // e.g. "Right Hand Bat · Top Order"
+
+  // ── Bowling info ──────────────────────────────────────────
+  const isBatter  = !bowlType && !bowlHand;
   const bowlParts = [
-    p.bowl_hand ? p.bowl_hand : null,
-    p.bowl_type ? p.bowl_type : null,
-  ].filter(Boolean).join(' ');
-  const bowlInfo = bowlParts || '—';
+    bowlHand ? bowlHand : null,
+    bowlType ? bowlType : null,
+  ].filter(Boolean);
+  const bowlInfo = bowlParts.join(' · '); // e.g. "Right Arm · Fast"
+
+  // ── Resolve stat columns ──────────────────────────────────
+  const batRating   = p.bat_rating   ?? p.batting   ?? p.bat  ?? '---';
+  const bowlRating  = p.bowl_rating  ?? p.bowling   ?? p.bowl ?? '---';
+  const fieldRating = p.field_rating ?? p.fielding  ?? p.field ?? '---';
+  const wkRating    = p.wk_rating    ?? p.wicket    ?? p.wk   ?? '---';
+  const psVal       = p.power_score  ?? p.ps        ?? '---';
 
   // ── Captain info ──────────────────────────────────────────
   const cr    = calcCR(p);
   const tier  = captainTierLabel(cr);
-  const mode  = captainModeBadge(p.captain_mode);
+  const mode  = captainModeBadge(p.captain_mode || p.captainmode);
   const isMat = cr >= 60;
 
-  $('pd-body').innerHTML = `
+
+  document.getElementById('pd-body').innerHTML = `
     <div class="lu-pd-hero">
       <div class="lu-pd-avatar">${roleEmoji(p.role)}</div>
       <div class="lu-pd-hero-right">
-        <div class="lu-pd-name">${esc(p.name)}</div>
-        <div class="lu-pd-role">${esc(p.role || '—')} · ${natDisplay}</div>
-
-        <div class="lu-pd-style-row">
-          <span class="lu-pd-style-icon">🏏</span>
-          <span class="lu-pd-style-txt">${batInfo || '—'}</span>
+        <div class="lu-pd-name">${esc(p.name)} <span class="lu-pd-age">(${p.age ?? '?'})</span></div>
+        <div class="lu-pd-role-nat">
+          <span class="lu-pd-role-pill">${esc(p.role)}</span>
+          ${natDisplay ? `<span class="lu-pd-nat">${esc(natDisplay)}</span>` : ''}
         </div>
 
+        <!-- 🏏 Batting row -->
         <div class="lu-pd-style-row">
-          <span class="lu-pd-style-icon">🎯</span>
-          <span class="lu-pd-style-txt ${isBatter ? 'lu-pd-style-na' : ''}">${bowlInfo}</span>
+          <span class="lu-pd-style-icon">🏏</span>
+          <span class="lu-pd-style-txt">
+            ${batInfo.length > 0 ? esc(batInfo) : esc(batHand + ' Bat')}
+          </span>
+        </div>
+
+        <!-- ⚾ Bowling row — shows bowl info or "---" for pure batters/WKs -->
+        <div class="lu-pd-style-row">
+          <span class="lu-pd-style-icon">⚾</span>
+          <span class="lu-pd-style-txt ${isBatter ? 'lu-pd-style-na' : ''}">
+            ${isBatter ? '---' : (bowlInfo.length > 0 ? esc(bowlInfo) : '---')}
+          </span>
         </div>
       </div>
     </div>
 
     <div class="lu-pd-stats-grid">
       <div class="lu-pd-stat">
-        <div class="lu-pd-stat-val">${p.batting  ?? '—'}</div>
+        <div class="lu-pd-stat-val">${batRating}</div>
         <div class="lu-pd-stat-lbl">Batting</div>
       </div>
       <div class="lu-pd-stat">
-        <div class="lu-pd-stat-val">${p.bowling  ?? '—'}</div>
+        <div class="lu-pd-stat-val">${bowlRating}</div>
         <div class="lu-pd-stat-lbl">Bowling</div>
       </div>
       <div class="lu-pd-stat">
-        <div class="lu-pd-stat-val">${p.fielding ?? '—'}</div>
+        <div class="lu-pd-stat-val">${fieldRating}</div>
         <div class="lu-pd-stat-lbl">Fielding</div>
       </div>
       <div class="lu-pd-stat">
-        <div class="lu-pd-stat-val">${p.wicket   ?? '—'}</div>
+        <div class="lu-pd-stat-val">${wkRating}</div>
         <div class="lu-pd-stat-lbl">Wkt Keeping</div>
       </div>
       <div class="lu-pd-stat">
-        <div class="lu-pd-stat-val">${p.ps       ?? '—'}</div>
+        <div class="lu-pd-stat-val">${psVal}</div>
         <div class="lu-pd-stat-lbl">Prof Score</div>
       </div>
-      <div class="lu-pd-stat">
-        <div class="lu-pd-stat-val">${p.age      ?? '—'}</div>
-        <div class="lu-pd-stat-lbl">Age</div>
+      <div class="lu-pd-stat lu-pd-stat--cr">
+        <div class="lu-pd-stat-val lu-pd-cr-val ${cr >= 90 ? 'wc' : cr >= 75 ? 'exp' : cr >= 60 ? 'decent' : 'weak'}">${cr}</div>
+        <div class="lu-pd-stat-lbl">Captain CR</div>
       </div>
     </div>
 
     <div class="lu-pd-tags-wrap">
       ${buildTags(p)}
-      ${isWK(p)       ? `<span class="lu-tag blue">Wicketkeeper</span>` : ''}
-      ${p.is_overseas ? `<span class="lu-tag red">Overseas</span>`      : ''}
-      ${p.is_youth    ? `<span class="lu-tag green">Youth</span>`       : ''}
+      ${isWK(p)      ? '<span class="lu-tag blue">Wicketkeeper</span>' : ''}
+      ${p.isoverseas ? '<span class="lu-tag red">Overseas</span>'      : ''}
+      ${p.isyouth    ? '<span class="lu-tag green">Youth</span>'       : ''}
     </div>
 
-    ${p.bio ? `<div class="lu-pd-bio">${esc(p.bio)}</div>` : ''}
-
-    <!-- ✅ CAPTAIN PROFILE SECTION -->
-    <div class="lu-pd-captain-section">
-      <div class="lu-pd-captain-header">
-        <span class="lu-pd-captain-title">🎖️ Captain Profile</span>
-        <span class="lu-pd-cr-badge ${cr >= 90 ? 'wc' : cr >= 75 ? 'exp' : cr >= 60 ? 'decent' : 'weak'}">
-          CR ${cr}
-        </span>
+    <div class="lu-pd-captain-block">
+      <div class="lu-pd-captain-title">
+        <span>Captain Profile</span>
+        <span class="lu-pd-cr-badge ${cr >= 90 ? 'wc' : cr >= 75 ? 'exp' : cr >= 60 ? 'decent' : 'weak'}">CR ${cr}</span>
       </div>
       <div class="lu-pd-captain-meta">
-        <span class="lu-pd-mode-pill">${mode.emoji} ${esc(mode.label)}</span>
+        <span class="lu-cap-mode ${esc((p.captain_mode || p.captainmode || '').toLowerCase())}">${mode.emoji} ${esc(mode.label)}</span>
         <span class="lu-pd-tier-pill">${tier.icon} ${esc(tier.label)}</span>
         ${isMat ? '<span class="lu-pd-capmat-pill">✅ Captain Material</span>' : ''}
       </div>
-      <div class="lu-pd-captain-bars">
-        <div class="lu-pd-cap-bar-row">
-          <span class="lu-pd-cap-bar-lbl">👑 Leadership</span>
-          <div class="lu-pd-cap-bar-track">
-            <div class="lu-pd-cap-bar-fill" style="width:${p.captain_leadership || 0}%"></div>
-          </div>
-          <span class="lu-pd-cap-bar-val">${p.captain_leadership || 0}</span>
-        </div>
-        <div class="lu-pd-cap-bar-row">
-          <span class="lu-pd-cap-bar-lbl">🧠 Tactics</span>
-          <div class="lu-pd-cap-bar-track">
-            <div class="lu-pd-cap-bar-fill" style="width:${p.captain_tactics || 0}%"></div>
-          </div>
-          <span class="lu-pd-cap-bar-val">${p.captain_tactics || 0}</span>
-        </div>
-        <div class="lu-pd-cap-bar-row">
-          <span class="lu-pd-cap-bar-lbl">🔥 Influence</span>
-          <div class="lu-pd-cap-bar-track">
-            <div class="lu-pd-cap-bar-fill" style="width:${p.captain_influence || 0}%"></div>
-          </div>
-          <span class="lu-pd-cap-bar-val">${p.captain_influence || 0}</span>
-        </div>
-      </div>
     </div>
+
+    ${p.bio ? `<div class="lu-pd-bio">${esc(p.bio)}</div>` : ''}
   `;
 
-  const selBtn  = $('pd-select-btn');
-  const already = _xiSelected.includes(p.id);
-  selBtn.textContent       = already ? '✓ Remove from XI' : '＋ Add to XI';
-  selBtn.style.background  = already ? 'rgba(224,85,85,.25)' : '';
-  selBtn.style.borderColor = already ? 'rgba(224,85,85,.5)'  : '';
-  selBtn.onclick = () => {
-    const idx = _xiSelected.indexOf(p.id);
-    if (idx > -1) { _xiSelected.splice(idx, 1); }
-    else {
-      if (_xiSelected.length >= 11) { toast('11 players already selected.'); return; }
-      _xiSelected.push(p.id);
-    }
-    hide('scrim-player-detail'); hide('sheet-player-detail');
-    renderXIList();
-  };
 
-  show('scrim-player-detail'); show('sheet-player-detail');
+  // ── Safe selBtn block ──────────────────────────────────────
+  const selBtn = document.getElementById('pd-select-btn');
+  if (selBtn) {
+    const already = _xiSelected.includes(p.id);
+
+    selBtn.textContent       = already ? 'Remove from XI' : 'Add to XI';
+    selBtn.style.background  = already ? 'rgba(224,85,85,.25)' : '';
+    selBtn.style.borderColor = already ? 'rgba(224,85,85,.5)'  : '';
+
+    selBtn.onclick = () => {
+      const idx = _xiSelected.indexOf(p.id);
+      if (idx !== -1) {
+        _xiSelected.splice(idx, 1);
+      } else {
+        if (_xiSelected.length >= 11) { toast('11 players already selected.'); return; }
+        _xiSelected.push(p.id);
+      }
+      hide('scrim-player-detail');
+      hide('sheet-player-detail');
+      renderXIList();
+    };
+  }
+  // ──────────────────────────────────────────────────────────
+
+
+  show('scrim-player-detail');
+  show('sheet-player-detail');
+
   window.closePlayerDetail = () => {
-    hide('scrim-player-detail'); hide('sheet-player-detail');
+    hide('scrim-player-detail');
+    hide('sheet-player-detail');
   };
 }
 
@@ -569,27 +582,7 @@ export function openCaptain(onConfirm, locked = false) {
             ${esc(p.name)}
             ${isCap ? '<span class="lu-cap-badge-c">© Captain</span>' : ''}
           </div>
-          <div class="lu-cap-role-line">
-            ${esc(p.role)} · PS ${p.ps ?? '—'}
-          </div>
-          <div class="lu-cap-mode-line">
-            <span class="lu-mode-chip">${mode.emoji} ${esc(mode.label)}</span>
-          </div>
-        </div>
-        <div class="lu-cap-cr-block">
-          <div class="lu-cr-num ${cr >= 90 ? 'wc' : cr >= 75 ? 'exp' : cr >= 60 ? 'decent' : 'weak'}">
-            ${cr}
-          </div>
-          <div class="lu-cr-label">CR</div>
-          <div class="lu-cap-tier-small">${tier.icon} ${esc(tier.label)}</div>
-        </div>
-      </div>
-      <div class="lu-cap-stats-row">
-        <div class="lu-cap-stat-pill" title="Leadership">👑 <span>${p.captain_leadership || 0}</span></div>
-        <div class="lu-cap-stat-pill" title="Tactics">🧠 <span>${p.captain_tactics || 0}</span></div>
-        <div class="lu-cap-stat-pill" title="Influence">🔥 <span>${p.captain_influence || 0}</span></div>
-        ${!isMat ? '<div class="lu-cap-nomat">⚠️ Low CR</div>' : ''}
-      </div>
+           <div class="lu-cap-ps">${esc(p.role)} · CR ${cr}</div>
     `;
 
     if (!locked) {
@@ -719,7 +712,43 @@ export function openOppDetail() {
   $('opp-detail-title').textContent = `${oName} — Details`;
   const body = $('opp-detail-body');
   body.innerHTML = '';
-
+  // ── Playing XI ────────────────────────────────────────────
+  const xiSec = document.createElement('div');
+  xiSec.className = 'lu-opp-section';
+  xiSec.innerHTML = `
+    <div class="lu-opp-section-label">👥 Playing XI</div>
+    <div class="lu-opp-section-val">
+      ${_state.oppXI.map((p, i) => `
+        <div class="lu-opp-player-row">
+          <span class="lu-opp-num">${i + 1}.</span>
+          <span class="lu-opp-pname">${esc(p.name)}</span>
+          <span style="margin-left:4px">${roleEmoji(p.role)}</span>
+          ${String(p.id) === String(_state.oppCaptain)
+            ? '<span class="lu-opp-cap-badge">C</span>' : ''}
+          ${isWK(p) ? '<span class="lu-opp-wk-badge">WK</span>' : ''}
+        </div>`).join('')}
+    </div>`;
+  body.appendChild(xiSec);
+// ── Batting Order ─────────────────────────────────────────
+  const batSec = document.createElement('div');
+  batSec.className = 'lu-opp-section';
+  batSec.innerHTML = `
+    <div class="lu-opp-section-label">🏏 Batting Order</div>
+    <div class="lu-opp-section-val">
+      ${_state.oppBatOrder.map((pid, i) => {
+        const p = _state.oppXI.find(pl => String(pl.id) === String(pid));
+        if (!p) return '';
+        return `
+          <div class="lu-opp-player-row">
+            <span class="lu-opp-num">${i + 1}.</span>
+            <span class="lu-opp-pname">${esc(p.name)}</span>
+            ${String(p.id) === String(_state.oppCaptain)
+              ? '<span class="lu-opp-cap-badge">C</span>' : ''}
+            ${isWK(p) ? '<span class="lu-opp-wk-badge">WK</span>' : ''}
+          </div>`;
+      }).join('')}
+    </div>`;
+  body.appendChild(batSec);
   // ── Opponent Captain info ──────────────────────────────────
   const oppCap = _state.oppXI.find(p => String(p.id) === String(_state.oppCaptain));
   if (oppCap) {
@@ -742,26 +771,7 @@ export function openOppDetail() {
     body.appendChild(capInfoSec);
   }
 
-  // ── Batting Order ─────────────────────────────────────────
-  const batSec = document.createElement('div');
-  batSec.className = 'lu-opp-section';
-  batSec.innerHTML = `
-    <div class="lu-opp-section-label">🏏 Batting Order</div>
-    <div class="lu-opp-section-val">
-      ${_state.oppBatOrder.map((pid, i) => {
-        const p = _state.oppXI.find(pl => String(pl.id) === String(pid));
-        if (!p) return '';
-        return `
-          <div class="lu-opp-player-row">
-            <span class="lu-opp-num">${i + 1}.</span>
-            <span class="lu-opp-pname">${esc(p.name)}</span>
-            ${String(p.id) === String(_state.oppCaptain)
-              ? '<span class="lu-opp-cap-badge">C</span>' : ''}
-            ${isWK(p) ? '<span class="lu-opp-wk-badge">WK</span>' : ''}
-          </div>`;
-      }).join('')}
-    </div>`;
-  body.appendChild(batSec);
+  
 
   // ── Bowling Plan ──────────────────────────────────────────
   const bowlEntries = Object.entries(_state.oppBowlAssign).filter(([, ov]) => ov.length > 0);
@@ -783,23 +793,7 @@ export function openOppDetail() {
     </div>`;
   body.appendChild(bowlSec);
 
-  // ── Playing XI ────────────────────────────────────────────
-  const xiSec = document.createElement('div');
-  xiSec.className = 'lu-opp-section';
-  xiSec.innerHTML = `
-    <div class="lu-opp-section-label">👥 Playing XI</div>
-    <div class="lu-opp-section-val">
-      ${_state.oppXI.map((p, i) => `
-        <div class="lu-opp-player-row">
-          <span class="lu-opp-num">${i + 1}.</span>
-          <span class="lu-opp-pname">${esc(p.name)}</span>
-          <span style="margin-left:4px">${roleEmoji(p.role)}</span>
-          ${String(p.id) === String(_state.oppCaptain)
-            ? '<span class="lu-opp-cap-badge">C</span>' : ''}
-          ${isWK(p) ? '<span class="lu-opp-wk-badge">WK</span>' : ''}
-        </div>`).join('')}
-    </div>`;
-  body.appendChild(xiSec);
+
 
   show('scrim-opp-detail'); show('sheet-opp-detail');
   window.closeOppDetail = () => {

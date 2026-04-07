@@ -75,6 +75,55 @@
 }
 .lu-edit-btn:active { background:rgba(245,166,35,.32);transform:scale(.97); }
 
+/* ── PLAYER TAGS ── */
+
+.lu-pd-tags-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 14px 16px 0;
+}
+
+.lu-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: .65rem;
+  font-weight: 900;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.70);
+  white-space: nowrap;
+}
+
+/* Role variants */
+.lu-tag.green {
+  background: rgba(111, 207, 111, .14);
+  border-color: rgba(111, 207, 111, .35);
+  color: #6fcf6f;
+}
+
+.lu-tag.blue {
+  background: rgba(96, 165, 250, .14);
+  border-color: rgba(96, 165, 250, .35);
+  color: #60a5fa;
+}
+
+.lu-tag.gold {
+  background: rgba(245, 166, 35, .14);
+  border-color: rgba(245, 166, 35, .35);
+  color: #F5A623;
+}
+
+.lu-tag.red {
+  background: rgba(224, 85, 85, .14);
+  border-color: rgba(224, 85, 85, .35);
+  color: #e05555;
+}
+
 /* ── Bottom bar ── */
 .lu-bottom-bar {
   position: fixed;
@@ -658,7 +707,12 @@
   .lu-pd-info-row      { padding:14px 26px; }
   .lu-pd-info-label    { font-size:.82rem; }
   .lu-pd-info-value    { font-size:.88rem; }
-  .lu-pd-tags-wrap     { padding:16px 26px; }
+.lu-pd-tags-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 14px 16px 0;
+}
   .lu-pd-captain-block { padding:16px 26px 18px;gap:11px; }
   .lu-cap-stat-row     { font-size:.80rem; }
   .lu-cap-stat-label   { min-width:84px; }

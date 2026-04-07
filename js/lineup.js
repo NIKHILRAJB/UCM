@@ -6,6 +6,7 @@ import { play11AI_batting, play11AI_bowling, play11AI_opponent } from './lineup-
 import { initPopups, updatePopupRefs, openXIPopup, openBatOrder, openBowlAssign, openCaptain, openVenue, openOppDetail, renderBowlAssign } from './lineup-popups.js';
 
 
+
 // ─── FIREBASE ───────────────────────────────────────────────────────────────
 const firebaseConfig = {
   apiKey: "AIzaSyCsmoyzfLBxdACck8jkV245t8AAoDE7GN8",
@@ -19,6 +20,7 @@ initializeApp(firebaseConfig);
 const auth = getAuth();
 
 
+
 // ─── STATE ──────────────────────────────────────────────────────────────────
 let _slot = null;
 let _step = 1;
@@ -26,6 +28,7 @@ const TOTAL = 5;
 let _allPlayers = [];
 let _allVenues   = [];
 let _tossDone    = false;
+
 
 
 export const state = {
@@ -37,12 +40,14 @@ export const state = {
 };
 
 
+
 // ─── TOSS STATE ─────────────────────────────────────────────────────────────
 let _tossVenueSide = 'neutral';
 let _userChoice    = null;
 let _tossOutcome   = null;
 let _userWonToss   = false;
 let _userDecision  = null;
+
 
 
 // ─── BOOT ───────────────────────────────────────────────────────────────────
@@ -86,6 +91,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 
+
 // ─── AUTO FILL STATE ────────────────────────────────────────────────────────
 function autoFillState() {
   const fmt  = _formatFromOvers();
@@ -115,6 +121,7 @@ function autoFillState() {
     state.oppBowlAssign = bowlAssign;
   }
 }
+
 
 
 // ─── NAVIGATION ─────────────────────────────────────────────────────────────
@@ -160,6 +167,7 @@ function validateStep(s) {
 }
 
 
+
 // ─── RENDER STEP ────────────────────────────────────────────────────────────
 function renderStep() {
   const main = document.getElementById('lu-main-content') || document.getElementById('lu-main');
@@ -183,6 +191,7 @@ function renderStep() {
   else if (_step === 4) renderStep4(main);
   else if (_step === 5) renderStep5(main);
 }
+
 
 
 // ═══════════════════════════════════════════════════════
@@ -227,6 +236,7 @@ function renderStep1(main) {
   `;
   if (!locked) $('btn-open-xi').addEventListener('click', () => openXIPopup(renderStep));
 }
+
 
 
 // ═══════════════════════════════════════════════════════
@@ -287,6 +297,7 @@ function _buildBowlSummary() {
 }
 
 
+
 // ═══════════════════════════════════════════════════════
 // STEP 3 – VENUE
 // ═══════════════════════════════════════════════════════
@@ -312,6 +323,7 @@ function renderStep3(main) {
   `;
   $('btn-choose-venue').addEventListener('click', () => openVenue(renderStep, locked));
 }
+
 
 
 // ═══════════════════════════════════════════════════════
@@ -343,13 +355,12 @@ function renderStep4(main) {
       <span class="lu-xi-tile-role">${roleEmoji(p.role)}</span>
       <span class="lu-xi-tile-name">${esc(p.name)}</span>
       ${isCap ? '<span class="lu-xi-tile-capbadge">©</span>' : ''}
-      <span class="lu-xi-tile-ps">${num(p.ps)}</span>
     </div>`;
   }).join('');
 
-  const keyBatter = [...state.oppXI].sort((a,b) => num(b.bat)  - num(a.bat))[0];
-  const keyBowler = [...state.oppXI].sort((a,b) => num(b.bowl) - num(a.bowl))[0];
-  const avgOppPS  = state.oppXI.length
+  const keyBatter   = [...state.oppXI].sort((a,b) => num(b.bat)  - num(a.bat))[0];
+  const keyBowler   = [...state.oppXI].sort((a,b) => num(b.bowl) - num(a.bowl))[0];
+  const avgOppPS    = state.oppXI.length
     ? Math.round(state.oppXI.reduce((s,p) => s + num(p.ps), 0) / state.oppXI.length) : 0;
   const strengthPct = Math.min(100, Math.round((avgOppPS / 99) * 100));
   const pitchBullets = _pitchBullets(venue);
@@ -360,8 +371,7 @@ function renderStep4(main) {
       <div class="lu-s4-info-strip">
         <span class="lu-s4-chip lu-s4-chip--format">${esc(fmt)}</span>
         <span class="lu-s4-chip lu-chip--${(_slot.difficulty||'medium')}">${diffEmoji(_slot.difficulty)} ${esc(diff)}</span>
-        ${venue ? `<span class="lu-s4-chip lu-s4-chip--venue">📍 ${esc(venue.name)}</span>` : ''}
-        ${venue?.pitch_type ? `<span class="lu-s4-chip lu-s4-chip--pitch">⛏ ${esc(venue.pitch_type)}</span>` : ''}
+
       </div>
 
       <div class="lu-s4-vs-block">
@@ -387,73 +397,108 @@ function renderStep4(main) {
       <div class="lu-s4-venue-strip">
         <span class="lu-toss-side-badge ${vSide}">${vSideEmoji} ${vSideText}</span>
         <span class="lu-s4-venue-name">${esc(venue.name)}</span>
-        <span class="lu-s4-venue-pitch">${esc(venue.pitch_type||'Balanced')} · ${esc(venue.pitch_condition||'Good')}</span>
+        <span class="lu-s4-venue-pitch" data-pitch="${esc(venue.pitchtype)}">${esc(venue.pitchtype)} · ${esc(venue.pitchcondition || 'Good')}</span>
       </div>` : ''}
 
       <div class="lu-xi-columns">
         <div class="lu-xi-col">
           <div class="lu-xi-col-label">${uFlag} ${uAbbr} XI</div>
-          <div class="lu-xi-col-tiles">${xiTiles(state.userXI, 'user')}</div>
+          <div class="lu-xi-col-tiles lu-xi-col-tiles--user">${xiTiles(state.userXI, 'user')}</div>
         </div>
         <div class="lu-xi-col">
           <div class="lu-xi-col-label">${oFlag} ${oAbbr} XI</div>
-          <div class="lu-xi-col-tiles">${xiTiles(state.oppXI, 'opp')}</div>
+          <div class="lu-xi-col-tiles lu-xi-col-tiles--opp">${xiTiles(state.oppXI, 'opp')}</div>
         </div>
       </div>
 
+      <!-- ── OPPONENT INTEL — collapsible ── -->
       <div class="lu-s4-opp-intel">
-        <div class="lu-s4-intel-title">🎯 Opponent Intel</div>
 
-        <div class="lu-s4-strength-wrap">
-          <div class="lu-s4-strength-label">Squad Strength <span class="lu-s4-strength-score">Avg PS ${avgOppPS}</span></div>
-          <div class="lu-s4-strength-track">
-            <div class="lu-s4-strength-fill" style="width:0%" data-pct="${strengthPct}"></div>
+        <!-- Clickable header — toggles .is-open on the card -->
+        <div class="lu-s4-intel-head">
+          <div class="lu-s4-intel-title">🎯 Opponent Intel</div>
+          <span class="lu-s4-intel-chevron">▼</span>
+        </div>
+
+        <!-- Collapsible body -->
+        <div class="lu-s4-intel-body">
+
+          <div class="lu-s4-strength-wrap">
+            <div class="lu-s4-strength-label">
+              Squad Strength
+              <span class="lu-s4-strength-score">Avg PS ${avgOppPS}</span>
+            </div>
+            <div class="lu-s4-strength-track">
+              <div class="lu-s4-strength-fill" style="width:0%" data-pct="${strengthPct}"></div>
+            </div>
           </div>
-        </div>
 
-        <div class="lu-s4-intel-grid">
-          ${keyBatter ? `
-          <div class="lu-s4-intel-card">
-            <div class="lu-s4-intel-card-title">🏏 Key Batter</div>
-            <div class="lu-s4-intel-name">${esc(keyBatter.name)}</div>
-            <div class="lu-s4-intel-stat">Bat <span>${num(keyBatter.bat)}</span></div>
+          
+
+          ${pitchBullets.length ? `
+          <div class="lu-s4-pitch-report">
+            <div class="lu-s4-intel-card-title">⛏ Pitch Report</div>
+            <div class="lu-s4-pitch-bullets">
+              ${pitchBullets.map(b => `<div class="lu-s4-pitch-bullet">${esc(b)}</div>`).join('')}
+            </div>
           </div>` : ''}
-          ${keyBowler ? `
-          <div class="lu-s4-intel-card">
-            <div class="lu-s4-intel-card-title">🎳 Danger Bowler</div>
-            <div class="lu-s4-intel-name">${esc(keyBowler.name)}</div>
-            <div class="lu-s4-intel-stat">Bowl <span>${num(keyBowler.bowl)}</span></div>
-          </div>` : ''}
-        </div>
 
-        ${pitchBullets.length ? `
-        <div class="lu-s4-pitch-report">
-          <div class="lu-s4-intel-card-title">⛏ Pitch Report</div>
-          ${pitchBullets.map(b => `<div class="lu-s4-pitch-bullet">• ${esc(b)}</div>`).join('')}
-        </div>` : ''}
+          <div class="lu-s4-prediction">${_matchPrediction()}</div>
 
-        <div class="lu-s4-prediction">${_matchPrediction()}</div>
+          <button class="lu-opp-detail-btn" id="btn-opp-detail">View Opponent Details →</button>
 
-        <button class="lu-opp-detail-btn" id="btn-opp-detail">View Opponent Details →</button>
-      </div>
+        </div><!-- end lu-s4-intel-body -->
+      </div><!-- end lu-s4-opp-intel -->
 
     </div>
   `;
 
+  // ── Event listeners ──────────────────────────────────────────────────────
+
+  // Opponent detail popup button
   $('btn-opp-detail').addEventListener('click', openOppDetail);
 
-  requestAnimationFrame(() => {
-    document.querySelectorAll('.lu-xi-tile').forEach((tile, i) => {
-      setTimeout(() => tile.classList.add('lu-xi-tile--visible'), 80 + i * 40);
+  // Collapsible Opponent Intel toggle
+  const intelCard = document.querySelector('.lu-s4-opp-intel');
+  const intelHead = document.querySelector('.lu-s4-intel-head');
+  if (intelHead && intelCard) {
+    intelHead.addEventListener('click', () => {
+      intelCard.classList.toggle('is-open');
+      // Trigger strength bar fill when opening
+      if (intelCard.classList.contains('is-open')) {
+        setTimeout(() => {
+          const fill = document.querySelector('.lu-s4-strength-fill');
+          if (fill) fill.style.width = (fill.dataset.pct ?? '0') + '%';
+        }, 100);
+      }
     });
+  }
+
+  // ── ANIMATION TRIGGER ────────────────────────────────────────────────────
+  // setTimeout gives browser 80ms to fully paint innerHTML before querying tiles
+  setTimeout(() => {
+    const tiles = document.querySelectorAll('.lu-xi-tile');
+
+    if (!tiles.length) {
+      console.warn('[lineup.js] lu-xi-tile: 0 tiles found — check xiTiles() output');
+    }
+
+    // Stagger each tile — user slides from left, opp from right (via CSS class)
+    tiles.forEach((tile, i) => {
+      setTimeout(() => {
+        tile.classList.add('lu-xi-tile--visible');
+      }, 80 + i * 55);
+    });
+
+    // Opp intel card fades in after all tiles finish
+    const intelDelay = 80 + tiles.length * 55 + 180;
     setTimeout(() => {
       document.querySelector('.lu-s4-opp-intel')?.classList.add('lu-s4-opp-intel--visible');
-    }, 700);
-    setTimeout(() => {
-      const fill = document.querySelector('.lu-s4-strength-fill');
-      if (fill) fill.style.width = fill.dataset.pct + '%';
-    }, 900);
-  });
+    }, intelDelay);
+
+    // NOTE: strength bar now fills on expand click, not on page load
+
+  }, 80);
 }
 
 function _pitchBullets(venue) {
@@ -461,10 +506,10 @@ function _pitchBullets(venue) {
   const bullets = [];
   const pt = (venue.pitch_type      || '').toLowerCase();
   const pc = (venue.pitch_condition || '').toLowerCase();
-  if      (pt.includes('bat')) bullets.push('Batting-friendly surface — expect high scores.');
+  if      (pt.includes('bat'))                        bullets.push('Batting-friendly surface — expect high scores.');
   else if (pt.includes('bowl') || pt.includes('seam')) bullets.push('Bowler-friendly — seam movement likely.');
-  else if (pt.includes('spin')) bullets.push('Spin-friendly track — spinners will be key.');
-  else if (pt.includes('balan')) bullets.push('Balanced pitch — even contest expected.');
+  else if (pt.includes('spin'))                        bullets.push('Spin-friendly track — spinners will be key.');
+  else if (pt.includes('balan'))                       bullets.push('Balanced pitch — even contest expected.');
   if (pc === 'worn')  bullets.push('Worn surface — deterioration expected as match progresses.');
   if (pc === 'dry')   bullets.push('Dry conditions — spinners may dominate later overs.');
   if (pc === 'fresh') bullets.push('Fresh pitch — expect early pace and bounce.');
@@ -483,6 +528,7 @@ function _matchPrediction() {
   if (diff < -3) return '🔥 Opponent has a slight edge — play to your strengths.';
   return '⚖️ Very evenly matched squads — could go either way!';
 }
+
 
 
 // ═══════════════════════════════════════════════════════
@@ -589,6 +635,7 @@ function _showTossResult() {
 }
 
 
+
 // ─── PERSIST MATCH DATA ─────────────────────────────────────────────────────
 function _persistMatchData() {
   const overs    = Number(_slot.overs) || 20;
@@ -621,6 +668,7 @@ function _persistMatchData() {
     }
   }));
 }
+
 
 
 // ─── GO TO MATCH ─────────────────────────────────────────────────────────────
@@ -662,6 +710,7 @@ function goToMatch() {
 }
 
 
+
 // ─── VENUE HELPERS ───────────────────────────────────────────────────────────
 function _getVenueSide(v) {
   if (!v) return 'neutral';
@@ -686,6 +735,7 @@ function _venueSideLabel(v) {
 }
 
 
+
 // ─── FORMAT HELPER ───────────────────────────────────────────────────────────
 function _formatFromOvers() {
   const o = Number(_slot?.overs) || 20;
@@ -695,6 +745,7 @@ function _formatFromOvers() {
   if (o <= 50) return 'ODI';
   return 'Test';
 }
+
 
 
 // ─── EXPOSE TO HTML (onclick) ────────────────────────────────────────────────

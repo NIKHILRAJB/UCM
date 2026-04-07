@@ -62,12 +62,15 @@ export function roleEmoji(role) {
 export function buildTags(p) {
   const tags = [];
   const r = (p.role || '').toUpperCase();
-  if (isWK(p))              tags.push(`WK`);
-  if (r.includes('ALL'))    tags.push(`ALL`);
-  else if (r.includes('BAT'))  tags.push(`BAT`);
-  else if (r.includes('BOWL')) tags.push(`BOWL`);
-  if (num(p.ps) >= 85)     tags.push(`⭐ Elite`);
-  else if (num(p.ps) >= 70) tags.push(`Good`);
+
+  if (isWK(p))               tags.push(`<span class="lu-tag blue">WK</span>`);
+  if (r.includes('ALL'))     tags.push(`<span class="lu-tag gold">ALL</span>`);
+  else if (r.includes('BAT')) tags.push(`<span class="lu-tag green">BAT</span>`);
+  else if (r.includes('BOWL')) tags.push(`<span class="lu-tag">BOWL</span>`);
+
+  if (num(p.ps) >= 85)      tags.push(`<span class="lu-tag gold">Elite</span>`);
+  else if (num(p.ps) >= 70) tags.push(`<span class="lu-tag green">Good</span>`);
+
   return tags.join('');
 }
 

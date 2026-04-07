@@ -4,6 +4,428 @@
    Depends on: lineup-base.css  (loads first)
    ═══════════════════════════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════
+   CAPTAIN GRID — clean 3-col tile grid
+   Shows: Avatar · Name · PS only
+═══════════════════════════════════════════ */
+
+.lu-captain-grid {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px 8px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  align-content: start;
+}
+
+.lu-captain-tile {
+  background: rgba(255,255,255,.08);
+  border: 1.5px solid rgba(255,255,255,.12);
+  border-radius: 16px;
+  padding: 14px 10px 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  text-align: center;
+  transition: background .14s, border-color .14s, transform .12s, box-shadow .14s;
+  user-select: none;
+  position: relative;
+}
+
+.lu-captain-tile:hover {
+  background: rgba(255,255,255,.12);
+  border-color: rgba(255,255,255,.20);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0,0,0,.32);
+}
+
+.lu-captain-tile.selected {
+  background: rgba(245,166,35,.16);
+  border-color: #F5A623;
+  box-shadow: 0 0 18px rgba(245,166,35,.22);
+  transform: none;
+}
+
+/* Checkmark badge on selected tile */
+.lu-captain-tile.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  width: 18px;
+  height: 18px;
+  background: rgba(245,166,35,.22);
+  border: 1px solid rgba(245,166,35,.45);
+  border-radius: 50%;
+  color: #F5A623;
+  font-size: .64rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 18px;
+}
+
+.lu-captain-tile:active:not(.selected) {
+  transform: scale(.96);
+}
+
+/* Avatar emoji */
+.lu-cap-avatar {
+  font-size: 1.65rem;
+  line-height: 1;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lu-captain-tile.selected .lu-cap-avatar {
+  background: rgba(245,166,35,.14);
+  border-color: rgba(245,166,35,.30);
+}
+
+/* Player name — max 2 lines, truncate */
+.lu-cap-name {
+  font-size: .80rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.25;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  width: 100%;
+}
+
+/* Power Score */
+.lu-cap-ps {
+  font-size: .78rem;
+  font-weight: 900;
+  color: #F5A623;
+  letter-spacing: .01em;
+}
+
+/* ── Responsive overrides ──────────────────── */
+
+/* Mobile: keep 3 cols but tighter */
+@media (max-width: 480px) {
+  .lu-captain-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 7px;
+    padding: 10px 10px 6px;
+  }
+  .lu-captain-tile {
+    padding: 12px 8px 10px;
+    border-radius: 12px;
+  }
+  .lu-cap-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 1.4rem;
+    border-radius: 10px;
+  }
+  .lu-cap-name { font-size: .74rem; }
+  .lu-cap-ps   { font-size: .74rem; }
+}
+
+/* Desktop modal: expand to 4 cols */
+@media (min-width: 768px) {
+  .lu-captain-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    padding: 14px 18px 10px;
+  }
+  .lu-captain-tile {
+    padding: 16px 12px 14px;
+    border-radius: 16px;
+  }
+  .lu-cap-avatar {
+    width: 54px;
+    height: 54px;
+    font-size: 1.8rem;
+    border-radius: 14px;
+  }
+  .lu-cap-name { font-size: .84rem; }
+  .lu-cap-ps   { font-size: .82rem; }
+}
+/* ── PLAYER DETAIL POPUP ── */
+
+.lu-player-detail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0 20px;
+  background:
+    radial-gradient(circle at top left, rgba(245,166,35,.10), transparent 38%),
+    linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+}
+
+/* Hero row */
+.lu-pd-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+}
+
+.lu-pd-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(245,166,35,.28), rgba(245,166,35,.12));
+  border: 1.5px solid rgba(245,166,35,.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.4rem;
+  flex-shrink: 0;
+  box-shadow: 0 10px 28px rgba(0,0,0,.30), 0 6px 16px rgba(245,166,35,.12);
+}
+
+.lu-pd-hero-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* Name + age on same line */
+.lu-pd-name {
+  font-size: 1.12rem;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.lu-pd-age {
+  font-size: .80rem;
+  font-weight: 600;
+  color: rgba(255,255,255,.48);
+  margin-left: 4px;
+}
+
+/* Role pill + nationality on one row */
+.lu-pd-role-nat {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.lu-pd-role-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(245,166,35,.12);
+  border: 1px solid rgba(245,166,35,.28);
+  color: #F5A623;
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.lu-pd-nat {
+  font-size: .72rem;
+  font-weight: 800;
+  color: rgba(255,255,255,.50);
+  letter-spacing: .06em;
+}
+
+/* Bat / Bowl style rows */
+.lu-pd-style-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 3px;
+}
+
+.lu-pd-style-icon {
+  font-size: .85rem;
+  flex-shrink: 0;
+}
+
+.lu-pd-style-txt {
+  font-size: .80rem;
+  font-weight: 700;
+  color: rgba(255,255,255,.78);
+}
+
+.lu-pd-style-na {
+  color: rgba(255,255,255,.28);
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* Stats grid — 3 cols on mobile, can go 6 across */
+.lu-pd-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 16px 16px 0;
+}
+
+.lu-pd-stat {
+  background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 14px;
+  padding: 14px 10px;
+  text-align: center;
+  box-shadow: 0 6px 14px rgba(0,0,0,.18);
+}
+
+.lu-pd-stat-val {
+  font-size: 1.32rem;
+  font-weight: 900;
+  color: #F5A623;
+  line-height: 1;
+}
+
+.lu-pd-stat-lbl {
+  margin-top: 5px;
+  font-size: .60rem;
+  font-weight: 800;
+  color: rgba(255,255,255,.40);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+
+/* CR stat cell colour variants */
+.lu-pd-cr-val.wc     { color: #ffd700; }
+.lu-pd-cr-val.exp    { color: #6fcf6f; }
+.lu-pd-cr-val.decent { color: #F5A623; }
+.lu-pd-cr-val.weak   { color: rgba(255,255,255,.35); }
+
+/* Tags */
+.lu-pd-tags-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 14px 16px 0;
+}
+
+/* Captain block */
+.lu-pd-captain-block {
+  margin: 14px 16px 0;
+  padding: 15px;
+  border: 1px solid rgba(245,166,35,.22);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(245,166,35,.10), rgba(245,166,35,.04));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lu-pd-captain-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: .68rem;
+  font-weight: 900;
+  color: #F5A623;
+  text-transform: uppercase;
+  letter-spacing: .10em;
+}
+
+.lu-pd-cr-badge {
+  font-size: .72rem;
+  font-weight: 900;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(245,166,35,.35);
+  background: rgba(245,166,35,.15);
+  color: #F5A623;
+}
+.lu-pd-cr-badge.wc     { color: #ffd700; border-color: rgba(255,215,0,.4);   background: rgba(255,215,0,.12); }
+.lu-pd-cr-badge.exp    { color: #6fcf6f; border-color: rgba(111,207,111,.4); background: rgba(111,207,111,.12); }
+.lu-pd-cr-badge.decent { color: #F5A623; }
+.lu-pd-cr-badge.weak   { color: rgba(255,255,255,.45); border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.06); }
+
+.lu-pd-captain-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.lu-pd-tier-pill {
+  font-size: .68rem;
+  font-weight: 800;
+  color: rgba(255,255,255,.65);
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+}
+
+.lu-pd-capmat-pill {
+  font-size: .66rem;
+  font-weight: 800;
+  color: #6fcf6f;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(111,207,111,.12);
+  border: 1px solid rgba(111,207,111,.28);
+}
+
+/* Captain bars */
+.lu-cap-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: .76rem;
+  font-weight: 700;
+  color: rgba(255,255,255,.55);
+}
+
+.lu-cap-stat-label {
+  min-width: 76px;
+  flex-shrink: 0;
+}
+
+.lu-cap-stat-bar {
+  flex: 1;
+  height: 5px;
+  background: rgba(255,255,255,.10);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.lu-cap-stat-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #F5A623, #ffd97a);
+  transition: width .35s cubic-bezier(.4,0,.2,1);
+}
+
+.lu-cap-stat-val {
+  min-width: 26px;
+  text-align: right;
+  color: #F5A623;
+  font-weight: 900;
+  font-size: .78rem;
+}
+
+/* Bio */
+.lu-pd-bio {
+  padding: 14px 16px 10px;
+  font-size: .82rem;
+  color: rgba(255,255,255,.52);
+  line-height: 1.75;
+}
+
 /* ── CSS Variables ─────────────────────────────────────────── */
 :root {
   --lu-bg:            #141412;
@@ -179,7 +601,307 @@
   0%,100% { transform:scale(1);    opacity:.6; }
   50%     { transform:scale(1.15); opacity:1; }
 }
+/* ── XI TILE ANIMATION ── */
 
+.lu-xi-tile {
+  opacity: 0;
+  transition: opacity 0.50s ease, transform 0.50s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* User tiles slide in from LEFT */
+.lu-xi-col-tiles--user .lu-xi-tile {
+  transform: translateX(-22px);
+}
+
+/* Opp tiles slide in from RIGHT */
+.lu-xi-col-tiles--opp .lu-xi-tile {
+  transform: translateX(22px);
+}
+
+/* Visible state — triggered by JS adding this class */
+.lu-xi-tile--visible {
+  opacity: 1 !important;
+  transform: translateX(0) !important;
+}
+
+/* Captain tile — gold highlight */
+.lu-xi-tile--cap {
+  background: rgba(232,175,52,.10);
+  border-color: rgba(232,175,52,.38) !important;
+}
+
+/* WK tile — blue tint */
+.lu-xi-tile--wk {
+  background: rgba(79,152,163,.08);
+  border-color: rgba(79,152,163,.28) !important;
+}
+
+/* Captain badge C */
+.lu-xi-tile-capbadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(232,175,52,.22);
+  border: 1px solid rgba(232,175,52,.45);
+  color: #e8af34;
+  font-size: .60rem;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+/* Column containers */
+.lu-xi-col-tiles--user,
+.lu-xi-col-tiles--opp {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── OPPONENT INTEL — spacious collapsible card ── */
+
+.lu-s4-opp-intel {
+  background: var(--lu-surface);
+  border: 1px solid var(--lu-border);
+  border-radius: var(--lu-radius-xl);
+  margin-bottom: var(--space-8);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity var(--lu-trans-slow), transform var(--lu-trans-slow);
+}
+
+.lu-s4-opp-intel--visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── Clickable header row ── */
+.lu-s4-intel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 22px 18px;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s ease, background 0.18s ease;
+}
+
+.lu-s4-intel-head:hover {
+  background: rgba(255,255,255,.03);
+}
+
+/* border shows only when open */
+.lu-s4-opp-intel.is-open .lu-s4-intel-head {
+  border-bottom-color: var(--lu-border);
+}
+
+.lu-s4-intel-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: .02em;
+  margin: 0;
+}
+
+/* Chevron arrow */
+.lu-s4-intel-chevron {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+  color: rgba(255,255,255,.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .85rem;
+  flex-shrink: 0;
+  transition: transform 0.28s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.lu-s4-opp-intel.is-open .lu-s4-intel-chevron {
+  transform: rotate(180deg);
+  background: rgba(245,166,35,.12);
+  color: #F5A623;
+  border-color: rgba(245,166,35,.35);
+}
+
+/* ── Collapsible body ── */
+.lu-s4-intel-body {
+  display: none;
+  padding: 22px 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
+  /* collapsed by default */
+  max-height: 0;
+  overflow: hidden;
+  padding: 0 22px;
+  transition: max-height 0.38s cubic-bezier(0.16,1,0.3,1),
+              padding 0.28s ease;
+}
+
+.lu-s4-opp-intel.is-open .lu-s4-intel-body {
+  max-height: 600px;
+  padding: 22px 22px 24px;
+}
+
+/* ── Squad strength ── */
+.lu-s4-strength-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lu-s4-strength-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--lu-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lu-s4-strength-score {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--lu-gold);
+}
+
+.lu-s4-strength-track {
+  height: 7px;
+  background: var(--lu-border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.lu-s4-strength-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--lu-accent), var(--lu-gold));
+  width: 0%;
+  transition: width 0.8s cubic-bezier(.4,0,.2,1);
+}
+
+/* ── Key batter / bowler cards ── */
+.lu-s4-intel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.lu-s4-intel-card {
+  background: var(--lu-surface-2);
+  border: 1px solid var(--lu-border);
+  border-radius: var(--lu-radius-lg);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.lu-s4-intel-card-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--lu-text-muted);
+}
+
+.lu-s4-intel-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.lu-s4-intel-stat {
+  font-size: 12px;
+  color: var(--lu-text-muted);
+}
+
+.lu-s4-intel-stat span {
+  color: var(--lu-gold);
+  font-weight: 700;
+}
+
+/* ── Pitch report ── */
+.lu-s4-pitch-report {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lu-s4-pitch-bullets {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.lu-s4-pitch-bullet {
+  font-size: 13px;
+  color: var(--lu-text-muted);
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  line-height: 1.5;
+}
+
+.lu-s4-pitch-bullet::before {
+  content: '◆';
+  color: var(--lu-accent);
+  font-size: .6rem;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+/* ── Prediction ── */
+.lu-s4-prediction {
+  padding: 14px 16px;
+  background: rgba(232,175,52,.08);
+  border: 1px solid rgba(232,175,52,.22);
+  border-radius: var(--lu-radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lu-gold);
+  line-height: 1.5;
+}
+
+/* ── View details button ── */
+.lu-opp-detail-btn {
+  width: 100%;
+  padding: 14px 16px;
+  background: rgba(255,255,255,.06);
+  border: 1.5px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.75);
+  font-size: .9rem;
+  font-weight: 700;
+  border-radius: var(--lu-radius-lg);
+  cursor: pointer;
+  text-align: center;
+  transition: background .15s, border-color .15s;
+  margin-top: 4px;
+}
+
+.lu-opp-detail-btn:hover {
+  background: rgba(255,255,255,.11);
+  border-color: rgba(255,255,255,.22);
+  color: #fff;
+}
+
+@media (max-width: 480px) {
+  .lu-s4-intel-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .lu-step4-wrap { max-width:760px;margin:0 auto;padding:var(--space-4) 0; }
 
 /* Info strip */
@@ -271,7 +993,108 @@
   background:var(--lu-gold-dim); border-radius:var(--lu-radius-md);
   font-size:13px; font-weight:600; color:var(--lu-gold); line-height:1.5;
 }
+/* ── VENUE STRIP ── */
 
+.lu-s4-venue-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  margin: 0 12px 10px;
+  flex-wrap: wrap;
+}
+
+.lu-toss-side-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  background: rgba(111,207,111,.14);
+  border: 1px solid rgba(111,207,111,.30);
+  color: #6fcf6f;
+}
+
+.lu-toss-side-badge.away {
+  background: rgba(224,85,85,.14);
+  border-color: rgba(224,85,85,.30);
+  color: #e05555;
+}
+
+.lu-toss-side-badge.neutral {
+  background: rgba(245,166,35,.14);
+  border-color: rgba(245,166,35,.30);
+  color: #F5A623;
+}
+
+.lu-s4-venue-name {
+  font-size: .80rem;
+  font-weight: 800;
+  color: rgba(255,255,255,.80);
+  flex: 1;
+}
+
+/* THE FIX — pitch condition chip */
+.lu-s4-venue-pitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+
+  /* default — gold/batting pitch */
+  background: rgba(245,166,35,.15);
+  border: 1px solid rgba(245,166,35,.35);
+  color: #F5A623;
+}
+
+/* Pitch type colour variants */
+.lu-s4-venue-pitch[data-pitch="Batting"],
+.lu-s4-venue-pitch.batting {
+  background: rgba(245,166,35,.15);
+  border-color: rgba(245,166,35,.35);
+  color: #F5A623;
+}
+
+.lu-s4-venue-pitch[data-pitch="Pace"],
+.lu-s4-venue-pitch.pace {
+  background: rgba(96,165,250,.15);
+  border-color: rgba(96,165,250,.35);
+  color: #60a5fa;
+}
+
+.lu-s4-venue-pitch[data-pitch="Spin"],
+.lu-s4-venue-pitch.spin {
+  background: rgba(167,139,250,.15);
+  border-color: rgba(167,139,250,.35);
+  color: #a78bfa;
+}
+
+.lu-s4-venue-pitch[data-pitch="Balanced"],
+.lu-s4-venue-pitch.balanced {
+  background: rgba(111,207,111,.15);
+  border-color: rgba(111,207,111,.35);
+  color: #6fcf6f;
+}
+
+.lu-s4-venue-pitch[data-pitch="Deteriorating"],
+.lu-s4-venue-pitch.deteriorating {
+  background: rgba(224,85,85,.15);
+  border-color: rgba(224,85,85,.35);
+  color: #e05555;
+}
 /* ── Responsive ── */
 @media (max-width:640px) {
   .lu-s2-grid     { grid-template-columns:1fr;gap:var(--space-3); }
@@ -287,4 +1110,728 @@
   .lu-xi-tile-name { font-size:13px; }
   .lu-xi-tile-ps   { font-size:11px; }
   .lu-s4-intel-grid{ grid-template-columns:1fr 1fr; }
+}
+
+
+/* =========================================================
+   STEP 1 — Playing XI card polish
+   ========================================================= */
+.lu-section-card {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.08) 100%),
+    linear-gradient(135deg, rgba(232,175,52,0.10) 0%, rgba(232,175,52,0.03) 38%, rgba(255,255,255,0.02) 100%);
+  border: 1.5px solid rgba(232,175,52,0.22);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.lu-section-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(232,175,52,0.45), transparent);
+  pointer-events: none;
+}
+
+.lu-section-card.complete {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.08) 100%),
+    linear-gradient(135deg, rgba(245,166,35,0.18) 0%, rgba(245,166,35,0.05) 42%, rgba(255,255,255,0.02) 100%);
+  border-color: rgba(245,166,35,0.48);
+  box-shadow: 0 12px 34px rgba(0,0,0,0.34), 0 0 0 1px rgba(245,166,35,0.08) inset;
+}
+
+.lu-section-label {
+  font-size: .70rem;
+  font-weight: 900;
+  color: rgba(245,166,35,.95);
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+
+.lu-section-value {
+  font-size: 1.08rem;
+  font-weight: 850;
+  color: #fff;
+  line-height: 1.25;
+}
+
+.lu-section-sub {
+  font-size: .79rem;
+  color: rgba(255,255,255,.56);
+  margin-top: 7px;
+  line-height: 1.6;
+}
+
+.lu-xi-count-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(245,166,35,.22), rgba(245,166,35,.10));
+  border: 1.5px solid rgba(245,166,35,.42);
+  color: #F5A623;
+  font-size: .82rem;
+  font-weight: 900;
+  letter-spacing: .03em;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+}
+
+.lu-xi-count-pill .muted {
+  color: rgba(255,255,255,.58);
+  font-weight: 700;
+}
+
+/* =========================================================
+   XI popup — polished player cards
+   ========================================================= */
+.lu-player-card {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.085), rgba(255,255,255,.055));
+  border: 1.5px solid rgba(255,255,255,.12);
+  border-radius: 18px;
+  box-shadow: 0 8px 22px rgba(0,0,0,.22);
+  transition: background .18s, border-color .18s, transform .12s, box-shadow .18s;
+}
+
+.lu-player-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(245,166,35,.08), transparent 48%);
+  opacity: .8;
+  pointer-events: none;
+}
+
+.lu-player-card:hover:not(.disabled) {
+  background: linear-gradient(180deg, rgba(255,255,255,.11), rgba(255,255,255,.07));
+  border-color: rgba(255,255,255,.20);
+  box-shadow: 0 12px 28px rgba(0,0,0,.28);
+  transform: translateY(-1px);
+}
+
+.lu-player-card.selected {
+  background:
+    linear-gradient(180deg, rgba(245,166,35,.17), rgba(245,166,35,.10)),
+    linear-gradient(135deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+  border-color: rgba(245,166,35,.75);
+  box-shadow: 0 12px 28px rgba(245,166,35,.16), 0 0 0 1px rgba(245,166,35,.16) inset;
+}
+
+.lu-player-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.08));
+  border: 1.5px solid rgba(255,255,255,.10);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+}
+
+.lu-player-card.selected .lu-player-avatar {
+  background: linear-gradient(180deg, rgba(245,166,35,.22), rgba(245,166,35,.12));
+  border-color: rgba(245,166,35,.42);
+}
+
+.lu-player-name {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.25;
+}
+
+.lu-player-tags {
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.lu-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: .65rem;
+  font-weight: 900;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.70);
+  white-space: nowrap;
+}
+
+/* Role variants */
+.lu-tag.green {
+  background: rgba(111, 207, 111, .14);
+  border-color: rgba(111, 207, 111, .35);
+  color: #6fcf6f;
+}
+
+.lu-tag.blue {
+  background: rgba(96, 165, 250, .14);
+  border-color: rgba(96, 165, 250, .35);
+  color: #60a5fa;
+}
+
+.lu-tag.gold {
+  background: rgba(245, 166, 35, .14);
+  border-color: rgba(245, 166, 35, .35);
+  color: #F5A623;
+}
+
+.lu-tag.red {
+  background: rgba(224, 85, 85, .14);
+  border-color: rgba(224, 85, 85, .35);
+  color: #e05555;
+}
+.lu-player-scores {
+  gap: 5px;
+}
+
+.lu-score-row {
+  font-size: .72rem;
+  font-weight: 700;
+  color: rgba(255,255,255,.42);
+}
+
+.lu-score-row span {
+  color: #F5A623;
+  font-weight: 900;
+}
+
+.lu-check-icon {
+  width: 26px;
+  height: 26px;
+  box-shadow: 0 6px 16px rgba(245,166,35,.30);
+}
+
+/* =========================================================
+   Player detail popup — dark glass rework
+   ========================================================= */
+.lu-player-detail-body {
+  padding: 0 0 18px;
+  background:
+    radial-gradient(circle at top left, rgba(245,166,35,.10), transparent 38%),
+    linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+}
+
+.lu-pd-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 24px 22px 20px;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015));
+}
+
+.lu-pd-avatar {
+  width: 78px;
+  height: 78px;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(245,166,35,.26), rgba(245,166,35,.12));
+  border: 1.5px solid rgba(245,166,35,.40);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.6rem;
+  box-shadow: 0 14px 34px rgba(0,0,0,.34), 0 8px 20px rgba(245,166,35,.12);
+}
+
+.lu-pd-name {
+  font-size: 1.26rem;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1.18;
+}
+
+.lu-pd-role {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 7px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(245,166,35,.28);
+  background: rgba(245,166,35,.10);
+  color: #F5A623;
+  font-size: .70rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.lu-pd-style-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.lu-pd-style-txt {
+  font-size: .83rem;
+  font-weight: 700;
+  color: rgba(255,255,255,.76);
+}
+
+.lu-pd-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 10px;
+  padding: 16px 18px 0;
+  background: transparent;
+  border-bottom: 0;
+}
+
+.lu-pd-stat {
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 18px;
+  padding: 16px 12px;
+  text-align: center;
+  box-shadow: 0 8px 18px rgba(0,0,0,.18);
+}
+
+.lu-pd-stat:hover {
+  background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+}
+
+.lu-pd-stat-val {
+  font-size: 1.38rem;
+  font-weight: 900;
+  color: #F5A623;
+  line-height: 1;
+}
+
+.lu-pd-stat-lbl {
+  margin-top: 6px;
+  font-size: .64rem;
+  font-weight: 800;
+  color: rgba(255,255,255,.42);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.lu-pd-info-section {
+  margin: 16px 18px 0;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+}
+
+.lu-pd-info-row {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+}
+
+.lu-pd-info-label {
+  font-size: .76rem;
+  font-weight: 700;
+  color: rgba(255,255,255,.42);
+}
+
+.lu-pd-info-value {
+  font-size: .86rem;
+  font-weight: 800;
+  color: rgba(255,255,255,.9);
+}
+
+
+
+.lu-pd-captain-block {
+  margin: 16px 18px 0;
+  padding: 16px;
+  border: 1px solid rgba(245,166,35,.18);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(245,166,35,.09), rgba(245,166,35,.04));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+.lu-pd-captain-title {
+  font-size: .70rem;
+  font-weight: 900;
+  color: #F5A623;
+  text-transform: uppercase;
+  letter-spacing: .10em;
+  margin-bottom: 10px;
+}
+
+.lu-cap-mode {
+  font-size: .66rem;
+  font-weight: 900;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.lu-cap-stat-row {
+  gap: 12px;
+}
+
+.lu-cap-stat-label {
+  min-width: 84px;
+  font-size: .76rem;
+  color: rgba(255,255,255,.54);
+}
+
+.lu-cap-stat-bar {
+  height: 6px;
+  background: rgba(255,255,255,.10);
+}
+
+.lu-cap-stat-fill {
+  background: linear-gradient(90deg, #F5A623, #ffd97a);
+}
+
+.lu-cap-stat-val {
+  min-width: 28px;
+  font-size: .76rem;
+  font-weight: 900;
+  color: #F5A623;
+}
+
+.lu-pd-bio {
+  padding: 16px 18px 10px;
+  font-size: .82rem;
+  color: rgba(255,255,255,.56);
+  line-height: 1.75;
+}
+
+@keyframes lu-player-sheet-slide {
+  from { opacity: 0; transform: translateY(26px) scale(.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+#sheet-player-detail.lu-sheet,
+#sheet-captain.lu-sheet,
+#sheet-opp-detail.lu-sheet {
+  animation: lu-player-sheet-slide .34s cubic-bezier(.16,1,.3,1);
+}
+
+/* =========================================================
+   Captain grid popup — polished dark glass
+   ========================================================= */
+.lu-captain-grid {
+  gap: 10px;
+  padding: 14px 16px 8px;
+}
+
+.lu-captain-tile {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.045));
+  border: 1.5px solid rgba(255,255,255,.11);
+  border-radius: 18px;
+  padding: 16px 10px 14px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.22);
+}
+
+.lu-captain-tile:hover {
+  background: linear-gradient(180deg, rgba(255,255,255,.11), rgba(255,255,255,.06));
+  border-color: rgba(255,255,255,.18);
+  box-shadow: 0 14px 28px rgba(0,0,0,.28);
+}
+
+.lu-captain-tile.selected {
+  background:
+    linear-gradient(180deg, rgba(245,166,35,.17), rgba(245,166,35,.08));
+  border-color: rgba(245,166,35,.72);
+  box-shadow: 0 12px 26px rgba(245,166,35,.16), 0 0 0 1px rgba(245,166,35,.14) inset;
+}
+
+.lu-cap-avatar {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.05));
+  border: 1px solid rgba(255,255,255,.09);
+  font-size: 1.7rem;
+  margin-bottom: 2px;
+}
+
+.lu-cap-name {
+  font-size: .82rem;
+  font-weight: 800;
+}
+
+.lu-cap-ps {
+  font-size: .84rem;
+  font-weight: 900;
+  color: #F5A623;
+}
+
+.lu-cap-badge-c {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(245,166,35,.16);
+  border: 1px solid rgba(245,166,35,.30);
+  color: #F5A623;
+  font-size: .58rem;
+  font-weight: 900;
+  vertical-align: middle;
+}
+
+.lu-captain-tile.selected::after {
+  top: 9px;
+  right: 9px;
+  width: 20px;
+  height: 20px;
+  background: rgba(245,166,35,.20);
+  border: 1px solid rgba(245,166,35,.35);
+  box-shadow: 0 6px 14px rgba(245,166,35,.18);
+}
+
+/* =========================================================
+   Step 4 — summary changes
+   ========================================================= */
+.lu-s4-vs-block {
+  margin-bottom: var(--space-6);
+}
+
+.lu-s4-venue-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 var(--space-8);
+  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.03));
+  border: 1px solid var(--lu-border);
+  border-radius: var(--lu-radius-lg);
+  animation: lu-fade-up .7s .22s both;
+}
+
+.lu-s4-venue-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.lu-s4-venue-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  border: 1px solid rgba(255,255,255,.12);
+  background: var(--lu-surface-2);
+  color: var(--lu-text-muted);
+}
+
+.lu-s4-venue-pill--pitch {
+  color: var(--lu-gold);
+  border-color: rgba(232,175,52,.26);
+  background: rgba(232,175,52,.10);
+}
+
+.lu-s4-venue-pill--cond {
+  color: #fff;
+}
+
+.lu-s4-venue-pill--side.home {
+  color: #6fcf6f;
+  border-color: rgba(111,207,111,.28);
+  background: rgba(111,207,111,.12);
+}
+
+.lu-s4-venue-pill--side.away {
+  color: #e05555;
+  border-color: rgba(224,85,85,.28);
+  background: rgba(224,85,85,.12);
+}
+
+.lu-s4-venue-pill--side.neutral {
+  color: #F5A623;
+  border-color: rgba(245,166,35,.30);
+  background: rgba(245,166,35,.12);
+}
+
+.lu-xi-tile {
+  opacity: 0;
+  transition: opacity .65s ease, transform .65s cubic-bezier(.16,1,.3,1);
+  background: var(--lu-surface);
+  border: 1px solid var(--lu-border);
+}
+
+.lu-xi-col-tiles--user .lu-xi-tile { transform: translateX(-22px); }
+.lu-xi-col-tiles--opp  .lu-xi-tile { transform: translateX(22px); }
+
+.lu-xi-tile--cap,
+.lu-xi-tile--wk {
+  background: var(--lu-surface);
+  border-color: var(--lu-border);
+}
+
+.lu-xi-tile-capbadge {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--lu-gold);
+  background: var(--lu-gold-dim);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.lu-s4-opp-intel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.lu-s4-intel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.lu-s4-intel-title {
+  margin: 0;
+}
+
+.lu-s4-intel-chevron {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.05);
+  color: rgba(255,255,255,.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .88rem;
+  transition: transform .28s ease, background .18s ease;
+  flex-shrink: 0;
+}
+
+.lu-s4-opp-intel.is-open .lu-s4-intel-chevron {
+  transform: rotate(180deg);
+  background: rgba(245,166,35,.10);
+  color: #F5A623;
+}
+
+.lu-s4-intel-body {
+  display: none;
+  padding: 0 20px 20px;
+}
+
+.lu-s4-opp-intel.is-open .lu-s4-intel-body {
+  display: block;
+}
+
+.lu-s4-prediction {
+  margin-top: var(--space-5);
+  margin-bottom: var(--space-8);
+}
+
+.lu-opp-detail-btn {
+  margin-top: 0;
+}
+
+/* =========================================================
+   Opponent detail popup — compact 2x2 restructure
+   ========================================================= */
+.lu-opp-detail-body {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 14px;
+  padding: 16px 16px 24px;
+  overflow-y: auto;
+  align-items: start;
+}
+
+.lu-opp-section {
+  background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.04));
+  border: 1.5px solid rgba(255,255,255,.11);
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.20);
+}
+
+.lu-opp-section--xi {
+  grid-column: 1 / -1;
+}
+
+.lu-opp-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  grid-column: 1 / -1;
+}
+
+.lu-opp-section-label {
+  font-size: .70rem;
+  font-weight: 900;
+  color: #F5A623;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(245,166,35,.18);
+  padding-bottom: 8px;
+}
+
+.lu-opp-player-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 0;
+  font-size: .82rem;
+  color: rgba(255,255,255,.84);
+  border-bottom: 1px solid rgba(255,255,255,.05);
+}
+
+.lu-opp-player-row:last-child {
+  border-bottom: none;
+}
+
+.lu-opp-stat-mini {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.lu-opp-mini-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.10);
+  color: rgba(255,255,255,.72);
+  font-size: .66rem;
+  font-weight: 800;
+}
+
+.lu-opp-mini-pill strong {
+  color: #F5A623;
+  font-weight: 900;
+}
+
+/* responsive */
+@media (max-width: 640px) {
+  .lu-pd-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .lu-opp-detail-body,
+  .lu-opp-detail-grid {
+    grid-template-columns: 1fr;
+  }
 }

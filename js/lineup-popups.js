@@ -2,14 +2,15 @@
 import {
   $, show, hide, esc, num, toast,
   isWK, roleEmoji, buildTags, pName, pNameFromList,
-  teamName, maxOvers
+  teamName, maxOvers,
+  calcCR, captainModeBadge, captainTierLabel
 } from './lineup-helpers.js';
 import { play11AI_batting, play11AI_bowling } from './lineup-ai.js';
 
 // ── Module-level state refs ───────────────────────────────────
 let _state, _slot, _allPlayers, _allVenues;
 let _xiSelected = [];
-let _xiFilter   = 'ALL';   // tracks active role filter
+let _xiFilter   = 'ALL';
 
 export function initPopups(state, slot, allPlayers, allVenues) {
   _state      = state;
@@ -30,20 +31,16 @@ export function openXIPopup(onConfirm) {
   _xiSelected = _state.userXI.map(p => p.id);
   _xiFilter   = 'ALL';
 
-  // Reload fresh player list from DB
   _allPlayers = window.dbAll(
     'SELECT * FROM Players WHERE team_id=? ORDER BY ps DESC', [_slot.userTeam]) || [];
 
-  // Reset filter buttons to ALL
   $('xi-filters').querySelectorAll('.lu-filter-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.role === 'ALL'));
 
   $('xi-popup-title').textContent = `Your XI — ${teamName(_slot.userTeam)}`;
   $('xi-search').value = '';
 
-  // ── Wire filter buttons — THIS was the missing piece ────────
   $('xi-filters').querySelectorAll('.lu-filter-btn').forEach(btn => {
-    // Clone to remove old listeners
     const fresh = btn.cloneNode(true);
     btn.parentNode.replaceChild(fresh, btn);
     fresh.addEventListener('click', () => {
@@ -59,15 +56,14 @@ export function openXIPopup(onConfirm) {
   show('sheet-xi');
 
   window.closeXIPopup = () => { hide('scrim-xi'); hide('sheet-xi'); };
-  window.filterXIList = () => renderXIList(); // oninput search
+  window.filterXIList = () => renderXIList();
   window.confirmXI    = () => _confirmXI(onConfirm);
 }
 
 function renderXIList() {
-  const query  = ($('xi-search')?.value || '').trim().toLowerCase();
-  let   list   = [..._allPlayers];
+  const query = ($('xi-search')?.value || '').trim().toLowerCase();
+  let   list  = [..._allPlayers];
 
-  // ── Role filter ───────────────────────────────────────────
   if (_xiFilter && _xiFilter !== 'ALL') {
     list = list.filter(p => {
       const r = (p.role || '').toUpperCase();
@@ -81,12 +77,10 @@ function renderXIList() {
     });
   }
 
-  // ── Search filter ─────────────────────────────────────────
   if (query) {
     list = list.filter(p => p.name.toLowerCase().includes(query));
   }
 
-  // ── WK count for rules bar ────────────────────────────────
   const wkCount = _xiSelected.filter(id => {
     const p = _allPlayers.find(pl => String(pl.id) === String(id));
     return p && isWK(p);
@@ -132,13 +126,11 @@ function renderXIList() {
       <div class="lu-check-icon">✓</div>
     `;
 
-    // Long press → player detail
     let pressTimer;
     card.addEventListener('pointerdown',  () => { pressTimer = setTimeout(() => openPlayerDetail(p), 500); });
     card.addEventListener('pointerup',    () => clearTimeout(pressTimer));
     card.addEventListener('pointerleave', () => clearTimeout(pressTimer));
 
-    // Tap → toggle selection
     card.addEventListener('click', e => {
       if (e.defaultPrevented) return;
       clearTimeout(pressTimer);
@@ -152,7 +144,6 @@ function renderXIList() {
       renderXIList();
     });
 
-    // Info button
     const infoBtn = document.createElement('button');
     infoBtn.innerHTML     = 'ℹ️';
     infoBtn.style.cssText =
@@ -171,15 +162,16 @@ function _confirmXI(onConfirm) {
   });
   if (!hasWK) { toast('You need at least 1 Wicketkeeper.'); return; }
 
-  // Build XI in selection order
-  _state.userXI      = _xiSelected.map(id => _allPlayers.find(p => p.id === id)).filter(Boolean);
-  // Batting order = XI order by default (user can re-arrange in Step 2)
+  _state.userXI       = _xiSelected.map(id => _allPlayers.find(p => p.id === id)).filter(Boolean);
   _state.userBatOrder = _state.userXI.map(p => p.id);
-  _state.userCaptain  = _state.userXI.reduce(
-    (b, p) => num(p.ps) > num(b?.ps) ? p : b, _state.userXI[0])?.id;
 
-  const totalOvers    = Number(_slot.overs) || 20;
-  _state.bowlAssign   = play11AI_bowling(
+  // ✅ Auto-captain: pick highest CR first, fallback to highest PS
+  const bestCap = [..._state.userXI].sort((a, b) => calcCR(b) - calcCR(a))[0];
+  _state.userCaptain = bestCap?.id ||
+    _state.userXI.reduce((b, p) => num(p.ps) > num(b?.ps) ? p : b, _state.userXI[0])?.id;
+
+  const totalOvers  = Number(_slot.overs) || 20;
+  _state.bowlAssign = play11AI_bowling(
     _state.userXI, _slot.difficulty, _formatFromOvers(), totalOvers, {});
 
   hide('scrim-xi'); hide('sheet-xi');
@@ -187,27 +179,30 @@ function _confirmXI(onConfirm) {
 }
 
 // ═══════════════════════════════════════════
-// PLAYER DETAIL
+// PLAYER DETAIL  ✅ Captain section added
 // ═══════════════════════════════════════════
 export function openPlayerDetail(p) {
   $('pd-title').textContent = p.name;
 
-  // ── Nationality: stored as short code, display in CAPS ──
   const natDisplay = (p.nationality || p.team_id || '—').toUpperCase();
 
-  // ── Batting info row ──────────────────────────────────────
   const batInfo = [
     p.bat_hand ? `${p.bat_hand} Bat` : null,
     p.bat_pos  ? p.bat_pos           : null,
   ].filter(Boolean).join(' · ');
 
-  // ── Bowling info row — show dash if pure BAT/WK ──────────
   const isBatter  = !p.bowl_type && !p.bowl_hand;
   const bowlParts = [
     p.bowl_hand ? p.bowl_hand : null,
     p.bowl_type ? p.bowl_type : null,
   ].filter(Boolean).join(' ');
-  const bowlInfo  = bowlParts || '—';
+  const bowlInfo = bowlParts || '—';
+
+  // ── Captain info ──────────────────────────────────────────
+  const cr    = calcCR(p);
+  const tier  = captainTierLabel(cr);
+  const mode  = captainModeBadge(p.captain_mode);
+  const isMat = cr >= 60;
 
   $('pd-body').innerHTML = `
     <div class="lu-pd-hero">
@@ -216,20 +211,14 @@ export function openPlayerDetail(p) {
         <div class="lu-pd-name">${esc(p.name)}</div>
         <div class="lu-pd-role">${esc(p.role || '—')} · ${natDisplay}</div>
 
-        <!-- Batting info -->
         <div class="lu-pd-style-row">
           <span class="lu-pd-style-icon">🏏</span>
-          <span class="lu-pd-style-txt">
-            ${batInfo || '—'}
-          </span>
+          <span class="lu-pd-style-txt">${batInfo || '—'}</span>
         </div>
 
-        <!-- Bowling info — always shown, dash if no bowling -->
         <div class="lu-pd-style-row">
           <span class="lu-pd-style-icon">🎯</span>
-          <span class="lu-pd-style-txt ${isBatter ? 'lu-pd-style-na' : ''}">
-            ${bowlInfo}
-          </span>
+          <span class="lu-pd-style-txt ${isBatter ? 'lu-pd-style-na' : ''}">${bowlInfo}</span>
         </div>
       </div>
     </div>
@@ -263,11 +252,50 @@ export function openPlayerDetail(p) {
 
     <div class="lu-pd-tags-wrap">
       ${buildTags(p)}
-      ${isWK(p)      ? `<span class="lu-tag blue">Wicketkeeper</span>`         : ''}
-      ${p.is_overseas ? `<span class="lu-tag red">Overseas</span>`             : ''}
-      ${p.is_youth    ? `<span class="lu-tag green">Youth</span>`              : ''}
+      ${isWK(p)       ? `<span class="lu-tag blue">Wicketkeeper</span>` : ''}
+      ${p.is_overseas ? `<span class="lu-tag red">Overseas</span>`      : ''}
+      ${p.is_youth    ? `<span class="lu-tag green">Youth</span>`       : ''}
     </div>
+
     ${p.bio ? `<div class="lu-pd-bio">${esc(p.bio)}</div>` : ''}
+
+    <!-- ✅ CAPTAIN PROFILE SECTION -->
+    <div class="lu-pd-captain-section">
+      <div class="lu-pd-captain-header">
+        <span class="lu-pd-captain-title">🎖️ Captain Profile</span>
+        <span class="lu-pd-cr-badge ${cr >= 90 ? 'wc' : cr >= 75 ? 'exp' : cr >= 60 ? 'decent' : 'weak'}">
+          CR ${cr}
+        </span>
+      </div>
+      <div class="lu-pd-captain-meta">
+        <span class="lu-pd-mode-pill">${mode.emoji} ${esc(mode.label)}</span>
+        <span class="lu-pd-tier-pill">${tier.icon} ${esc(tier.label)}</span>
+        ${isMat ? '<span class="lu-pd-capmat-pill">✅ Captain Material</span>' : ''}
+      </div>
+      <div class="lu-pd-captain-bars">
+        <div class="lu-pd-cap-bar-row">
+          <span class="lu-pd-cap-bar-lbl">👑 Leadership</span>
+          <div class="lu-pd-cap-bar-track">
+            <div class="lu-pd-cap-bar-fill" style="width:${p.captain_leadership || 0}%"></div>
+          </div>
+          <span class="lu-pd-cap-bar-val">${p.captain_leadership || 0}</span>
+        </div>
+        <div class="lu-pd-cap-bar-row">
+          <span class="lu-pd-cap-bar-lbl">🧠 Tactics</span>
+          <div class="lu-pd-cap-bar-track">
+            <div class="lu-pd-cap-bar-fill" style="width:${p.captain_tactics || 0}%"></div>
+          </div>
+          <span class="lu-pd-cap-bar-val">${p.captain_tactics || 0}</span>
+        </div>
+        <div class="lu-pd-cap-bar-row">
+          <span class="lu-pd-cap-bar-lbl">🔥 Influence</span>
+          <div class="lu-pd-cap-bar-track">
+            <div class="lu-pd-cap-bar-fill" style="width:${p.captain_influence || 0}%"></div>
+          </div>
+          <span class="lu-pd-cap-bar-val">${p.captain_influence || 0}</span>
+        </div>
+      </div>
+    </div>
   `;
 
   const selBtn  = $('pd-select-btn');
@@ -322,7 +350,6 @@ export function openBatOrder(onConfirm, locked = false) {
     }
     if (clearBtn) {
       clearBtn.onclick = () => {
-        // Clear = reset to XI insertion order
         _renderBatOrderList(_state.userXI.map(p => p.id));
         toast('Reset to XI order');
       };
@@ -440,12 +467,12 @@ export function renderBowlAssign(totalOvers, cap, locked = false) {
       const isBlocked    = isTakenOther || isConsec || (!isMine && atCap) || locked;
 
       let cls = 'lu-over-chip';
-      if (isMine)        cls += ' selected';
+      if (isMine)            cls += ' selected';
       else if (isTakenOther) cls += ' taken';
-      else if (isConsec) cls += ' consecutive';
+      else if (isConsec)     cls += ' consecutive';
 
-      const title = isConsec      ? 'Consecutive overs not allowed'
-                  : isTakenOther  ? 'Assigned to another bowler' : '';
+      const title = isConsec     ? 'Consecutive overs not allowed'
+                  : isTakenOther ? 'Assigned to another bowler' : '';
 
       chips += `<div class="${cls}"
         data-over="${ov}" data-pid="${p.id}"
@@ -514,38 +541,79 @@ function _updateBowlProgress(totalOvers) {
 }
 
 // ═══════════════════════════════════════════
-// CAPTAIN
+// CAPTAIN  ✅ Full CR + Mode + Tier upgrade
 // ═══════════════════════════════════════════
 export function openCaptain(onConfirm, locked = false) {
   const grid = $('captain-grid');
   grid.innerHTML = '';
 
-  _state.userXI.forEach(p => {
+  // ✅ Sort by CR descending so best captains appear first
+  const sorted = [..._state.userXI].sort((a, b) => calcCR(b) - calcCR(a));
+
+  sorted.forEach(p => {
+    const cr    = calcCR(p);
+    const tier  = captainTierLabel(cr);
+    const mode  = captainModeBadge(p.captain_mode);
+    const isCap = String(_state.userCaptain) === String(p.id);
+    const isMat = cr >= 60;
+
     const tile = document.createElement('div');
     tile.className =
-      `lu-captain-tile${String(_state.userCaptain) === String(p.id) ? ' selected' : ''}`;
+      `lu-captain-tile${isCap ? ' selected' : ''}${!isMat ? ' lu-captain-dim' : ''}`;
+
     tile.innerHTML = `
-      <div class="lu-cap-avatar">${roleEmoji(p.role)}</div>
-      <div class="lu-cap-name">${esc(p.name)}</div>
-      <div class="lu-cap-ps">PS ${p.ps ?? '—'}</div>
-      <div class="lu-cap-check">
-        ${String(_state.userCaptain) === String(p.id) ? '✓ Captain' : ''}
+      <div class="lu-cap-top-row">
+        <div class="lu-cap-avatar">${roleEmoji(p.role)}</div>
+        <div class="lu-cap-info">
+          <div class="lu-cap-name">
+            ${esc(p.name)}
+            ${isCap ? '<span class="lu-cap-badge-c">© Captain</span>' : ''}
+          </div>
+          <div class="lu-cap-role-line">
+            ${esc(p.role)} · PS ${p.ps ?? '—'}
+          </div>
+          <div class="lu-cap-mode-line">
+            <span class="lu-mode-chip">${mode.emoji} ${esc(mode.label)}</span>
+          </div>
+        </div>
+        <div class="lu-cap-cr-block">
+          <div class="lu-cr-num ${cr >= 90 ? 'wc' : cr >= 75 ? 'exp' : cr >= 60 ? 'decent' : 'weak'}">
+            ${cr}
+          </div>
+          <div class="lu-cr-label">CR</div>
+          <div class="lu-cap-tier-small">${tier.icon} ${esc(tier.label)}</div>
+        </div>
+      </div>
+      <div class="lu-cap-stats-row">
+        <div class="lu-cap-stat-pill" title="Leadership">👑 <span>${p.captain_leadership || 0}</span></div>
+        <div class="lu-cap-stat-pill" title="Tactics">🧠 <span>${p.captain_tactics || 0}</span></div>
+        <div class="lu-cap-stat-pill" title="Influence">🔥 <span>${p.captain_influence || 0}</span></div>
+        ${!isMat ? '<div class="lu-cap-nomat">⚠️ Low CR</div>' : ''}
       </div>
     `;
+
     if (!locked) {
       tile.addEventListener('click', () => {
         _state.userCaptain = p.id;
         grid.querySelectorAll('.lu-captain-tile').forEach(t => {
           t.classList.remove('selected');
-          t.querySelector('.lu-cap-check').textContent = '';
+          const badge = t.querySelector('.lu-cap-badge-c');
+          if (badge) badge.remove();
         });
         tile.classList.add('selected');
-        tile.querySelector('.lu-cap-check').textContent = '✓ Captain';
+        const nameEl = tile.querySelector('.lu-cap-name');
+        if (nameEl && !nameEl.querySelector('.lu-cap-badge-c')) {
+          const badge = document.createElement('span');
+          badge.className   = 'lu-cap-badge-c';
+          badge.textContent = '© Captain';
+          nameEl.appendChild(badge);
+        }
       });
     } else {
       tile.style.pointerEvents = 'none';
       tile.style.opacity       = '0.7';
     }
+
     grid.appendChild(tile);
   });
 
@@ -559,26 +627,23 @@ export function openCaptain(onConfirm, locked = false) {
 }
 
 // ═══════════════════════════════════════════
-// VENUE — Smart home/away/neutral detection
+// VENUE
 // ═══════════════════════════════════════════
 export function openVenue(onConfirm, locked = false) {
   const list = $('venue-list');
   list.innerHTML = '';
 
-  // Get team country for smart matching when team_id not set on Venues
   const userTeamRow = window.dbAll('SELECT country FROM Teams WHERE id=?', [_slot.userTeam])[0];
   const oppTeamRow  = window.dbAll('SELECT country FROM Teams WHERE id=?', [_slot.oppTeam])[0];
   const userCountry = (userTeamRow?.country || '').toLowerCase();
   const oppCountry  = (oppTeamRow?.country  || '').toLowerCase();
 
-  // Classify each venue
   const classify = v => {
     if (v.team_id) {
       if (String(v.team_id) === String(_slot.userTeam)) return 'home';
       if (String(v.team_id) === String(_slot.oppTeam))  return 'away';
       return 'neutral';
     }
-    // Fallback: match by country name
     const vc = (v.country || '').toLowerCase();
     if (userCountry && vc.includes(userCountry)) return 'home';
     if (oppCountry  && vc.includes(oppCountry))  return 'away';
@@ -589,7 +654,6 @@ export function openVenue(onConfirm, locked = false) {
   const away    = _allVenues.filter(v => classify(v) === 'away').slice(0, 3);
   const neutral = _allVenues.filter(v => classify(v) === 'neutral').slice(0, 3);
 
-  // Hard-coded fallback neutrals if DB has nothing
   const fallbackNeutrals = [
     { id:'neu1', name:"Lord's Cricket Ground", country:'England',   pitch_type:'Batting', team_id:null },
     { id:'neu2', name:'MCG — Melbourne',        country:'Australia', pitch_type:'Pace',    team_id:null },
@@ -597,28 +661,12 @@ export function openVenue(onConfirm, locked = false) {
   ];
 
   const sections = [
-    {
-      label : '🏠 Home Venues',
-      cls   : 'home',
-      items : home.length    ? home    : [],
-      empty : `No home venues found for ${teamName(_slot.userTeam)}`
-    },
-    {
-      label : '✈️ Away Venues',
-      cls   : 'away',
-      items : away.length    ? away    : [],
-      empty : `No away venues found for ${teamName(_slot.oppTeam)}`
-    },
-    {
-      label : '⚖️ Neutral Venues',
-      cls   : 'neutral',
-      items : neutral.length ? neutral : fallbackNeutrals,
-      empty : ''
-    }
+    { label:'🏠 Home Venues',    cls:'home',    items:home.length    ? home    : [], empty:`No home venues found for ${teamName(_slot.userTeam)}` },
+    { label:'✈️ Away Venues',    cls:'away',    items:away.length    ? away    : [], empty:`No away venues found for ${teamName(_slot.oppTeam)}`  },
+    { label:'⚖️ Neutral Venues', cls:'neutral', items:neutral.length ? neutral : fallbackNeutrals, empty:'' },
   ];
 
   sections.forEach(sec => {
-    // Section header
     const hdr = document.createElement('div');
     hdr.className   = `lu-venue-section-hdr ${sec.cls}`;
     hdr.textContent = sec.label;
@@ -641,7 +689,7 @@ export function openVenue(onConfirm, locked = false) {
           <div class="lu-venue-name">${esc(v.name)}</div>
           <div class="lu-venue-country">${esc(v.country || '—')}</div>
         </div>
-        <div class="lu-venue-pitch">${esc(v.pitch_type || 'Standard')}</div>
+        <div class="lu-venue-pitch">${esc(v.pitch_type || 'Balanced')} · ${esc(v.pitch_condition || 'Good')}</div>
       `;
       if (!locked) {
         card.addEventListener('click', () => {
@@ -664,13 +712,35 @@ export function openVenue(onConfirm, locked = false) {
 }
 
 // ═══════════════════════════════════════════
-// OPPONENT DETAIL — responsive grid layout
+// OPPONENT DETAIL
 // ═══════════════════════════════════════════
 export function openOppDetail() {
   const oName = teamName(_slot.oppTeam);
   $('opp-detail-title').textContent = `${oName} — Details`;
   const body = $('opp-detail-body');
   body.innerHTML = '';
+
+  // ── Opponent Captain info ──────────────────────────────────
+  const oppCap = _state.oppXI.find(p => String(p.id) === String(_state.oppCaptain));
+  if (oppCap) {
+    const cr   = calcCR(oppCap);
+    const mode = captainModeBadge(oppCap.captain_mode);
+    const tier = captainTierLabel(cr);
+    const capInfoSec = document.createElement('div');
+    capInfoSec.className = 'lu-opp-section';
+    capInfoSec.innerHTML = `
+      <div class="lu-opp-section-label">🎖️ Their Captain</div>
+      <div class="lu-opp-section-val">
+        <div class="lu-opp-player-row">
+          <span class="lu-opp-pname">${esc(oppCap.name)}</span>
+          <span class="lu-opp-cap-badge">C</span>
+          <span style="margin-left:8px;font-size:.75rem;color:#F5A623">CR ${cr}</span>
+          <span style="margin-left:6px;font-size:.75rem;color:rgba(255,255,255,.6)">${mode.emoji} ${esc(mode.label)}</span>
+          <span style="margin-left:6px;font-size:.7rem;color:rgba(255,255,255,.4)">${tier.icon} ${esc(tier.label)}</span>
+        </div>
+      </div>`;
+    body.appendChild(capInfoSec);
+  }
 
   // ── Batting Order ─────────────────────────────────────────
   const batSec = document.createElement('div');
@@ -694,8 +764,7 @@ export function openOppDetail() {
   body.appendChild(batSec);
 
   // ── Bowling Plan ──────────────────────────────────────────
-  const bowlEntries = Object.entries(_state.oppBowlAssign)
-    .filter(([, ov]) => ov.length > 0);
+  const bowlEntries = Object.entries(_state.oppBowlAssign).filter(([, ov]) => ov.length > 0);
   const bowlSec = document.createElement('div');
   bowlSec.className = 'lu-opp-section';
   bowlSec.innerHTML = `
@@ -769,20 +838,18 @@ export function renderOrderList(listId, order, xi, scoreKey) {
       <span class="lu-drag-handle">⠿</span>
     `;
 
-    // Arrow buttons
     row.querySelectorAll('.lu-arr-btn').forEach(btn => {
       btn.addEventListener('click', e => {
         e.stopPropagation();
         const rows = [...list.querySelectorAll('.lu-order-row')];
         const i    = rows.indexOf(row);
-        if (btn.dataset.dir === 'up'   && i > 0)             list.insertBefore(row, rows[i - 1]);
+        if (btn.dataset.dir === 'up'   && i > 0)              list.insertBefore(row, rows[i - 1]);
         if (btn.dataset.dir === 'down' && i < rows.length - 1) list.insertBefore(rows[i + 1], row);
         list.querySelectorAll('.lu-order-row').forEach((r, ri) =>
           r.querySelector('.lu-order-num').textContent = ri + 1);
       });
     });
 
-    // Desktop drag
     row.addEventListener('dragstart', e => {
       dragSrc = row;
       e.dataTransfer.effectAllowed = 'move';

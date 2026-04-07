@@ -1,5 +1,5 @@
 // ─── lineup-helpers.js ────────────────────────────────────────
-export const $    = id => document.getElementById(id);
+export const $ = id => document.getElementById(id);
 export const show = id => $(id)?.classList.remove('hidden');
 export const hide = id => $(id)?.classList.add('hidden');
 
@@ -34,14 +34,12 @@ export function teamName(id) {
   return row?.name || String(id);
 }
 
-// ── Safe teamFlag — gracefully handles missing flag column ────
 export function teamFlag(id) {
   if (!id) return '🏏';
   try {
     const row = dbOne('SELECT flag FROM Teams WHERE id=?', [id]);
     return row?.flag || '🏏';
   } catch (e) {
-    // Column doesn't exist yet in restored session — return default
     return '🏏';
   }
 }
@@ -63,18 +61,18 @@ export function roleEmoji(role) {
 
 export function buildTags(p) {
   const tags = [];
-  const r    = (p.role || '').toUpperCase();
-  if (isWK(p))                 tags.push(`<span class="lu-tag blue">WK</span>`);
-  if (r.includes('ALL'))       tags.push(`<span class="lu-tag gold">ALL</span>`);
-  else if (r.includes('BAT'))  tags.push(`<span class="lu-tag green">BAT</span>`);
-  else if (r.includes('BOWL')) tags.push(`<span class="lu-tag">BOWL</span>`);
-  if (num(p.ps) >= 85)         tags.push(`<span class="lu-tag gold">⭐ Elite</span>`);
-  else if (num(p.ps) >= 70)    tags.push(`<span class="lu-tag green">Good</span>`);
+  const r = (p.role || '').toUpperCase();
+  if (isWK(p))              tags.push(`WK`);
+  if (r.includes('ALL'))    tags.push(`ALL`);
+  else if (r.includes('BAT'))  tags.push(`BAT`);
+  else if (r.includes('BOWL')) tags.push(`BOWL`);
+  if (num(p.ps) >= 85)     tags.push(`⭐ Elite`);
+  else if (num(p.ps) >= 70) tags.push(`Good`);
   return tags.join('');
 }
 
 export function formatLabel(overs) {
-  if (overs <=  5) return 'T5';
+  if (overs <= 5)  return 'T5';
   if (overs <= 10) return 'T10';
   if (overs <= 20) return 'T20';
   if (overs <= 50) return 'ODI';
@@ -93,7 +91,7 @@ export function diffEmoji(d) {
 }
 
 export function maxOvers(total) {
-  if (total <=  5) return 2;
+  if (total <= 5)  return 2;
   if (total <= 10) return 2;
   if (total <= 20) return 4;
   return 10;
@@ -111,4 +109,45 @@ export function toast(msg) {
   el.classList.add('visible');
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => el.classList.remove('visible'), 2800);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ─── CAPTAIN SKILL HELPERS ─────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+
+// Calculates the Captain Rating (0–100) from 3 attributes
+export function calcCR(p) {
+  const l = num(p.captain_leadership);
+  const t = num(p.captain_tactics);
+  const i = num(p.captain_influence);
+  if (!l && !t && !i) return 0;
+  return Math.round((l * 0.40) + (t * 0.35) + (i * 0.25));
+}
+
+// Returns emoji + label for each captain mode
+export function captainModeBadge(mode) {
+  switch ((mode || '').toLowerCase()) {
+    case 'aggressive':    return { emoji: '⚔️',  label: 'Aggressive' };
+    case 'defensive':     return { emoji: '🛡️',  label: 'Defensive' };
+    case 'tactical':      return { emoji: '🧠',  label: 'Tactical' };
+    case 'inspirational': return { emoji: '🔥',  label: 'Inspirational' };
+    case 'experienced':   return { emoji: '🎖️',  label: 'Experienced' };
+    case 'impulsive':     return { emoji: '🎲',  label: 'Impulsive' };
+    default:              return { emoji: '🏏',  label: 'Unknown' };
+  }
+}
+
+// Returns tier rank label + icon based on CR score
+export function captainTierLabel(cr) {
+  const c = num(cr);
+  if (c >= 90) return { icon: '🏆', label: 'World Class' };
+  if (c >= 75) return { icon: '🔵', label: 'Experienced Leader' };
+  if (c >= 60) return { icon: '🟡', label: 'Decent Captain' };
+  if (c >= 45) return { icon: '🟠', label: 'Inexperienced' };
+  return           { icon: '⚪', label: 'Not Captain Material' };
+}
+
+// Returns whether a player is captain material (CR >= 60)
+export function isCaptainMaterial(p) {
+  return calcCR(p) >= 60;
 }

@@ -1,11 +1,12 @@
-// ─── lineup.js ──────────────────────────────────────────────────
+// ─── lineup.js ──────────────────────────────────────────────────────────────
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { $, show, hide, esc, num, toast, isWK, teamName, teamFlag, pName, pNameFromList, roleEmoji, formatLabel, capitalize, diffEmoji, maxOvers } from './lineup-helpers.js';
 import { play11AI_batting, play11AI_bowling, play11AI_opponent } from './lineup-ai.js';
 import { initPopups, updatePopupRefs, openXIPopup, openBatOrder, openBowlAssign, openCaptain, openVenue, openOppDetail, renderBowlAssign } from './lineup-popups.js';
 
-// ─── FIREBASE ───────────────────────────────────────────────────
+
+// ─── FIREBASE ───────────────────────────────────────────────────────────────
 const firebaseConfig = {
   apiKey: "AIzaSyCsmoyzfLBxdACck8jkV245t8AAoDE7GN8",
   authDomain: "ultimate-cricket-manager.firebaseapp.com",
@@ -17,13 +18,15 @@ const firebaseConfig = {
 initializeApp(firebaseConfig);
 const auth = getAuth();
 
-// ─── STATE ──────────────────────────────────────────────────────
+
+// ─── STATE ──────────────────────────────────────────────────────────────────
 let _slot = null;
 let _step = 1;
 const TOTAL = 5;
 let _allPlayers = [];
 let _allVenues   = [];
 let _tossDone    = false;
+
 
 export const state = {
   userXI: [], oppXI: [],
@@ -33,14 +36,16 @@ export const state = {
   venueId: null
 };
 
-// ─── TOSS STATE ─────────────────────────────────────────────────
+
+// ─── TOSS STATE ─────────────────────────────────────────────────────────────
 let _tossVenueSide = 'neutral';
 let _userChoice    = null;
 let _tossOutcome   = null;
 let _userWonToss   = false;
 let _userDecision  = null;
 
-// ─── BOOT ───────────────────────────────────────────────────────
+
+// ─── BOOT ───────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   const raw = sessionStorage.getItem('ucm_lineup_slot');
   if (!raw) { window.location.href = 'friendly.html'; return; }
@@ -63,16 +68,25 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   $('btn-lu-back').addEventListener('click', stepBack);
   $('btn-lu-next').addEventListener('click', stepNext);
-  $('btn-lu-cancel').addEventListener('click', _cancelLineup);
 
-  // ✅ FIX 1: xi-filters listener moved here but guarded safely
-  // The actual filter button listeners are attached inside renderStep1()
-  // when the popup opens, not at boot time — so removed from here entirely.
+  const cancelBtn = $('btn-lu-cancel');
+  if (cancelBtn) cancelBtn.addEventListener('click', _cancelLineup);
+
+  const xiFilters = document.getElementById('xi-filters');
+  if (xiFilters) {
+    xiFilters.querySelectorAll('.lu-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        xiFilters.querySelectorAll('.lu-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+  }
 
   renderStep();
 });
 
-// ─── AUTO FILL STATE ────────────────────────────────────────────
+
+// ─── AUTO FILL STATE ────────────────────────────────────────────────────────
 function autoFillState() {
   const fmt  = _formatFromOvers();
   const diff = _slot.difficulty || 'medium';
@@ -102,7 +116,8 @@ function autoFillState() {
   }
 }
 
-// ─── NAVIGATION ─────────────────────────────────────────────────
+
+// ─── NAVIGATION ─────────────────────────────────────────────────────────────
 function stepNext() {
   if (!validateStep(_step)) return;
   if (_step === TOTAL) { goToMatch(); return; }
@@ -144,20 +159,23 @@ function validateStep(s) {
   return true;
 }
 
-// ─── RENDER STEP ────────────────────────────────────────────────
+
+// ─── RENDER STEP ────────────────────────────────────────────────────────────
 function renderStep() {
-  const main = $('lu-main-content');
-  if (!main) return;
+  const main = document.getElementById('lu-main-content') || document.getElementById('lu-main');
+  if (!main) { console.error('[lineup.js] renderStep: main content element not found'); return; }
   main.innerHTML = '';
 
-  $('btn-lu-next').textContent = _step === TOTAL ? '🏏 Play Match' : 'Next →';
-  $('btn-lu-next').disabled    = (_step === TOTAL && !_userDecision);
-  $('btn-lu-back').textContent = _step === 1 ? '✕ Cancel' : '← Back';
-
+  const nextBtn   = $('btn-lu-next');
+  const backBtn   = $('btn-lu-back');
   const cancelBtn = $('btn-lu-cancel');
-  if (cancelBtn) {
-    cancelBtn.style.display = _step === TOTAL ? '' : 'none';
+
+  if (nextBtn) {
+    nextBtn.textContent = _step === TOTAL ? '🏏 Play Match' : 'Next →';
+    nextBtn.disabled    = (_step === TOTAL && !_userDecision);
   }
+  if (backBtn) backBtn.textContent = _step === 1 ? '✕ Cancel' : '← Back';
+  if (cancelBtn) cancelBtn.style.display = _step === TOTAL ? '' : 'none';
 
   if      (_step === 1) renderStep1(main);
   else if (_step === 2) renderStep2(main);
@@ -166,9 +184,10 @@ function renderStep() {
   else if (_step === 5) renderStep5(main);
 }
 
-// ═══════════════════════════════════════════
-// STEP 1 — PLAYING XI
-// ═══════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════
+// STEP 1 – PLAYING XI
+// ═══════════════════════════════════════════════════════
 function renderStep1(main) {
   const done   = state.userXI.length === 11;
   const hasWK  = state.userXI.some(isWK);
@@ -180,7 +199,7 @@ function renderStep1(main) {
     <div class="lu-step-sub">Select 11 players for ${esc(uName)}</div>
     <div class="lu-section-card ${done && hasWK ? 'complete' : ''}">
       <div class="lu-section-info">
-        <div class="lu-section-label">Your Team — ${esc(uName)}</div>
+        <div class="lu-section-label">Your Team – ${esc(uName)}</div>
         <div class="lu-section-value">${done
           ? state.userXI.slice(0,3).map(p => esc(p.name)).join(', ') + '…'
           : 'No players selected yet'}</div>
@@ -206,25 +225,13 @@ function renderStep1(main) {
       </div>
     </div>` : ''}
   `;
-
-  // ✅ FIX 1: xi-filters listener attached here safely after innerHTML is set
-  const xiFilters = $('xi-filters');
-  if (xiFilters) {
-    xiFilters.querySelectorAll('.lu-filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        xiFilters.querySelectorAll('.lu-filter-btn')
-          .forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-    });
-  }
-
   if (!locked) $('btn-open-xi').addEventListener('click', () => openXIPopup(renderStep));
 }
 
-// ═══════════════════════════════════════════
-// STEP 2 — ORDERS + CAPTAIN
-// ═══════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════
+// STEP 2 – ORDERS + CAPTAIN
+// ═══════════════════════════════════════════════════════
 function renderStep2(main) {
   const locked   = _tossDone;
   const capName  = state.userCaptain ? pName(state.userCaptain, _allPlayers) : 'Not set';
@@ -279,9 +286,10 @@ function _buildBowlSummary() {
     .join('<br>');
 }
 
-// ═══════════════════════════════════════════
-// STEP 3 — VENUE
-// ═══════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════
+// STEP 3 – VENUE
+// ═══════════════════════════════════════════════════════
 function renderStep3(main) {
   const locked = _tossDone;
   const venue  = _allVenues.find(v => v.id === state.venueId);
@@ -294,7 +302,7 @@ function renderStep3(main) {
         <div class="lu-section-label">Selected Venue</div>
         <div class="lu-section-value">${venue ? esc(venue.name) : 'Not selected'}</div>
         <div class="lu-section-sub">${venue
-          ? `${esc(venue.country)} · Pitch: ${esc(venue.pitchtype || 'Standard')} · ${_venueSideLabel(venue)}`
+          ? `${esc(venue.country)} · Pitch: ${esc(venue.pitch_type || 'Balanced')} · Condition: ${esc(venue.pitch_condition || 'Good')} · ${_venueSideLabel(venue)}`
           : 'Tap Choose to browse'}</div>
       </div>
       <button class="lu-edit-btn" id="btn-choose-venue" ${locked ? 'style="opacity:.5"' : ''}>
@@ -305,17 +313,22 @@ function renderStep3(main) {
   $('btn-choose-venue').addEventListener('click', () => openVenue(renderStep, locked));
 }
 
-// ═══════════════════════════════════════════
-// STEP 4 — SUMMARY
-// ═══════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════
+// STEP 4 – MATCH SUMMARY  ✨ REDESIGNED
+// ═══════════════════════════════════════════════════════
 function renderStep4(main) {
   const venue  = _allVenues.find(v => v.id === state.venueId);
   const uName  = teamName(_slot.userTeam);
   const oName  = teamName(_slot.oppTeam);
   const uFlag  = teamFlag(_slot.userTeam);
   const oFlag  = teamFlag(_slot.oppTeam);
+  const uAbbr  = (uName || 'YOU').slice(0, 3).toUpperCase();
+  const oAbbr  = (oName || 'OPP').slice(0, 3).toUpperCase();
   const uCap   = pName(state.userCaptain, _allPlayers);
   const oCap   = pNameFromList(state.oppCaptain, state.oppXI);
+  const uCapP  = state.userXI.find(p => p.id === state.userCaptain);
+  const oCapP  = state.oppXI.find(p => p.id === state.oppCaptain);
   const fmt    = formatLabel(Number(_slot.overs));
   const diff   = capitalize(_slot.difficulty || 'medium');
 
@@ -323,68 +336,158 @@ function renderStep4(main) {
   const vSideEmoji = vSide === 'home' ? '🏠' : vSide === 'away' ? '✈️' : '⚖️';
   const vSideText  = vSide === 'home' ? 'Home' : vSide === 'away' ? 'Away' : 'Neutral';
 
-  const xiRows = xi => xi.map((p,i) => `
-    <div class="lu-summary-xi-player">
-      <span class="lu-summary-xi-num">${i+1}</span>
-      <span class="lu-summary-xi-pname">${esc(p.name)}</span>
-      <span class="lu-summary-xi-role">${roleEmoji(p.role)}</span>
-    </div>`).join('');
+  const xiTiles = (xi, side) => xi.map((p, i) => {
+    const isCap = p.id === (side === 'user' ? state.userCaptain : state.oppCaptain);
+    const isWk  = isWK(p);
+    return `<div class="lu-xi-tile${isCap ? ' lu-xi-tile--cap' : isWk ? ' lu-xi-tile--wk' : ''}">
+      <span class="lu-xi-tile-role">${roleEmoji(p.role)}</span>
+      <span class="lu-xi-tile-name">${esc(p.name)}</span>
+      ${isCap ? '<span class="lu-xi-tile-capbadge">©</span>' : ''}
+      <span class="lu-xi-tile-ps">${num(p.ps)}</span>
+    </div>`;
+  }).join('');
+
+  const keyBatter = [...state.oppXI].sort((a,b) => num(b.bat)  - num(a.bat))[0];
+  const keyBowler = [...state.oppXI].sort((a,b) => num(b.bowl) - num(a.bowl))[0];
+  const avgOppPS  = state.oppXI.length
+    ? Math.round(state.oppXI.reduce((s,p) => s + num(p.ps), 0) / state.oppXI.length) : 0;
+  const strengthPct = Math.min(100, Math.round((avgOppPS / 99) * 100));
+  const pitchBullets = _pitchBullets(venue);
 
   main.innerHTML = `
-    <div class="lu-step-title">Match Summary</div>
-    <div class="lu-step-sub">Locked in · review before toss</div>
-    <div class="lu-summary-hero">
-      <div class="lu-summary-matchid">${esc(_slot.slotName || 'Friendly Match')}</div>
-      <div class="lu-summary-vs-row">
-        <div class="lu-summary-team-block">
-          <div class="lu-summary-flag">${uFlag}</div>
-          <div class="lu-summary-tname">${esc(uName)}</div>
-          <div class="lu-summary-captain-tag">${esc(uCap)}</div>
+    <div class="lu-step4-wrap">
+
+      <div class="lu-s4-info-strip">
+        <span class="lu-s4-chip lu-s4-chip--format">${esc(fmt)}</span>
+        <span class="lu-s4-chip lu-chip--${(_slot.difficulty||'medium')}">${diffEmoji(_slot.difficulty)} ${esc(diff)}</span>
+        ${venue ? `<span class="lu-s4-chip lu-s4-chip--venue">📍 ${esc(venue.name)}</span>` : ''}
+        ${venue?.pitch_type ? `<span class="lu-s4-chip lu-s4-chip--pitch">⛏ ${esc(venue.pitch_type)}</span>` : ''}
+      </div>
+
+      <div class="lu-s4-vs-block">
+        <div class="lu-s4-team-card lu-s4-team-card--user">
+          <div class="lu-s4-flag">${uFlag}</div>
+          <div class="lu-s4-team-abbr">${uAbbr}</div>
+          <div class="lu-s4-team-fullname">${esc(uName)}</div>
+          ${uCapP ? `<div class="lu-s4-cap-badge">© ${esc(uCap)}</div>` : ''}
         </div>
-        <div class="lu-summary-vs-sep">VS</div>
-        <div class="lu-summary-team-block">
-          <div class="lu-summary-flag">${oFlag}</div>
-          <div class="lu-summary-tname">${esc(oName)}</div>
-          <div class="lu-summary-captain-tag">${esc(oCap)}</div>
+        <div class="lu-s4-vs-glow">
+          <span class="lu-s4-vs-ring"></span>
+          <span class="lu-s4-vs-text">VS</span>
+        </div>
+        <div class="lu-s4-team-card lu-s4-team-card--opp">
+          <div class="lu-s4-flag">${oFlag}</div>
+          <div class="lu-s4-team-abbr">${oAbbr}</div>
+          <div class="lu-s4-team-fullname">${esc(oName)}</div>
+          ${oCapP ? `<div class="lu-s4-cap-badge">© ${esc(oCap)}</div>` : ''}
         </div>
       </div>
-      <div class="lu-summary-divider"></div>
-      <div class="lu-summary-xi-wrap">
-        <div class="lu-summary-xi-col">
-          <div class="lu-summary-xi-label">Your XI</div>
-          ${xiRows(state.userXI)}
+
+      ${venue ? `
+      <div class="lu-s4-venue-strip">
+        <span class="lu-toss-side-badge ${vSide}">${vSideEmoji} ${vSideText}</span>
+        <span class="lu-s4-venue-name">${esc(venue.name)}</span>
+        <span class="lu-s4-venue-pitch">${esc(venue.pitch_type||'Balanced')} · ${esc(venue.pitch_condition||'Good')}</span>
+      </div>` : ''}
+
+      <div class="lu-xi-columns">
+        <div class="lu-xi-col">
+          <div class="lu-xi-col-label">${uFlag} ${uAbbr} XI</div>
+          <div class="lu-xi-col-tiles">${xiTiles(state.userXI, 'user')}</div>
         </div>
-        <div class="lu-summary-xi-col">
-          <div class="lu-summary-xi-label">Their XI</div>
-          ${xiRows(state.oppXI)}
+        <div class="lu-xi-col">
+          <div class="lu-xi-col-label">${oFlag} ${oAbbr} XI</div>
+          <div class="lu-xi-col-tiles">${xiTiles(state.oppXI, 'opp')}</div>
         </div>
       </div>
-      <div class="lu-summary-meta-row">
-        <span class="lu-summary-meta-pill">${esc(fmt)}</span>
-        <span class="lu-summary-meta-pill">${diffEmoji(_slot.difficulty)} ${esc(diff)}</span>
-      </div>
-      <div class="lu-summary-venue-row">
-        <div class="lu-summary-venue-left">
-          <div class="lu-summary-venue-name">${venue ? esc(venue.name) : '—'}</div>
-          <div class="lu-summary-venue-meta">
-            ${venue ? esc(venue.country) : ''}
-            <span class="lu-toss-side-badge ${vSide}"
-              style="display:inline-flex;padding:3px 10px;font-size:.7rem;margin-left:6px;">
-              ${vSideEmoji} ${vSideText}
-            </span>
+
+      <div class="lu-s4-opp-intel">
+        <div class="lu-s4-intel-title">🎯 Opponent Intel</div>
+
+        <div class="lu-s4-strength-wrap">
+          <div class="lu-s4-strength-label">Squad Strength <span class="lu-s4-strength-score">Avg PS ${avgOppPS}</span></div>
+          <div class="lu-s4-strength-track">
+            <div class="lu-s4-strength-fill" style="width:0%" data-pct="${strengthPct}"></div>
           </div>
         </div>
-        <div class="lu-summary-venue-pitch">${venue ? esc(venue.pitchtype || 'Standard') : ''}</div>
+
+        <div class="lu-s4-intel-grid">
+          ${keyBatter ? `
+          <div class="lu-s4-intel-card">
+            <div class="lu-s4-intel-card-title">🏏 Key Batter</div>
+            <div class="lu-s4-intel-name">${esc(keyBatter.name)}</div>
+            <div class="lu-s4-intel-stat">Bat <span>${num(keyBatter.bat)}</span></div>
+          </div>` : ''}
+          ${keyBowler ? `
+          <div class="lu-s4-intel-card">
+            <div class="lu-s4-intel-card-title">🎳 Danger Bowler</div>
+            <div class="lu-s4-intel-name">${esc(keyBowler.name)}</div>
+            <div class="lu-s4-intel-stat">Bowl <span>${num(keyBowler.bowl)}</span></div>
+          </div>` : ''}
+        </div>
+
+        ${pitchBullets.length ? `
+        <div class="lu-s4-pitch-report">
+          <div class="lu-s4-intel-card-title">⛏ Pitch Report</div>
+          ${pitchBullets.map(b => `<div class="lu-s4-pitch-bullet">• ${esc(b)}</div>`).join('')}
+        </div>` : ''}
+
+        <div class="lu-s4-prediction">${_matchPrediction()}</div>
+
+        <button class="lu-opp-detail-btn" id="btn-opp-detail">View Opponent Details →</button>
       </div>
+
     </div>
-    <button class="lu-opp-detail-btn" id="btn-opp-detail">View Opponent Details</button>
   `;
+
   $('btn-opp-detail').addEventListener('click', openOppDetail);
+
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.lu-xi-tile').forEach((tile, i) => {
+      setTimeout(() => tile.classList.add('lu-xi-tile--visible'), 80 + i * 40);
+    });
+    setTimeout(() => {
+      document.querySelector('.lu-s4-opp-intel')?.classList.add('lu-s4-opp-intel--visible');
+    }, 700);
+    setTimeout(() => {
+      const fill = document.querySelector('.lu-s4-strength-fill');
+      if (fill) fill.style.width = fill.dataset.pct + '%';
+    }, 900);
+  });
 }
 
-// ═══════════════════════════════════════════
-// STEP 5 — TOSS
-// ═══════════════════════════════════════════
+function _pitchBullets(venue) {
+  if (!venue) return [];
+  const bullets = [];
+  const pt = (venue.pitch_type      || '').toLowerCase();
+  const pc = (venue.pitch_condition || '').toLowerCase();
+  if      (pt.includes('bat')) bullets.push('Batting-friendly surface — expect high scores.');
+  else if (pt.includes('bowl') || pt.includes('seam')) bullets.push('Bowler-friendly — seam movement likely.');
+  else if (pt.includes('spin')) bullets.push('Spin-friendly track — spinners will be key.');
+  else if (pt.includes('balan')) bullets.push('Balanced pitch — even contest expected.');
+  if (pc === 'worn')  bullets.push('Worn surface — deterioration expected as match progresses.');
+  if (pc === 'dry')   bullets.push('Dry conditions — spinners may dominate later overs.');
+  if (pc === 'fresh') bullets.push('Fresh pitch — expect early pace and bounce.');
+  if (pc === 'good')  bullets.push('Good playing surface — conditions suit batting.');
+  if (pc === 'rank')  bullets.push('Rank turner — spin could be unplayable.');
+  return bullets;
+}
+
+function _matchPrediction() {
+  const uAvg = state.userXI.length ? state.userXI.reduce((s,p) => s + num(p.ps), 0) / state.userXI.length : 0;
+  const oAvg = state.oppXI.length  ? state.oppXI.reduce((s,p)  => s + num(p.ps), 0) / state.oppXI.length  : 0;
+  const diff = uAvg - oAvg;
+  if (diff > 8)  return '📈 Your squad looks significantly stronger. Favour your team to win.';
+  if (diff > 3)  return '📊 Slight edge to your team — a competitive match expected.';
+  if (diff < -8) return '⚠️ Tough challenge ahead — opponent squad is considerably stronger.';
+  if (diff < -3) return '🔥 Opponent has a slight edge — play to your strengths.';
+  return '⚖️ Very evenly matched squads — could go either way!';
+}
+
+
+// ═══════════════════════════════════════════════════════
+// STEP 5 – TOSS
+// ═══════════════════════════════════════════════════════
 function renderStep5(main) {
   const venue = _allVenues.find(v => v.id === state.venueId);
   _tossVenueSide = _getVenueSide(venue);
@@ -417,7 +520,7 @@ function renderStep5(main) {
         ${_tossDone
           ? (!userCalls ? `${esc(oName)} called automatically` : '')
           : (!userCalls
-              ? `Tap the coin — ${esc(oName)} will call automatically`
+              ? `Tap the coin – ${esc(oName)} will call automatically`
               : (_userChoice ? 'Tap the coin to flip!' : 'Pick Heads or Tails first'))}
       </div>
 
@@ -459,8 +562,7 @@ function _showTossResult() {
   if (!card) return;
 
   const outcomeLabel = _tossOutcome
-    ? _tossOutcome.charAt(0).toUpperCase() + _tossOutcome.slice(1)
-    : '';
+    ? _tossOutcome.charAt(0).toUpperCase() + _tossOutcome.slice(1) : '';
 
   if (winTxt) winTxt.textContent =
     `It's ${outcomeLabel}! ${_userWonToss ? uName : oName} won the toss`;
@@ -477,14 +579,17 @@ function _showTossResult() {
       if (decTxt) decTxt.textContent =
         `${oName} chose to ${oppDid} first. You will ${_userDecision} first.`;
     }
-    $('btn-lu-next').disabled = false;
+    const nb = $('btn-lu-next');
+    if (nb) nb.disabled = false;
   }
 
   card.classList.add('visible');
-  $('btn-lu-next').disabled = !_userDecision;
+  const nb = $('btn-lu-next');
+  if (nb) nb.disabled = !_userDecision;
 }
 
-// ─── PERSIST MATCH DATA ─────────────────────────────────────────
+
+// ─── PERSIST MATCH DATA ─────────────────────────────────────────────────────
 function _persistMatchData() {
   const overs    = Number(_slot.overs) || 20;
   const assigned = Object.values(state.bowlAssign).flat().length;
@@ -492,6 +597,9 @@ function _persistMatchData() {
     state.bowlAssign = play11AI_bowling(
       state.userXI, _slot.difficulty, _formatFromOvers(), overs, state.bowlAssign);
   }
+
+  const venueObj = _allVenues.find(v => v.id === state.venueId) || null;
+
   sessionStorage.setItem('ucm_match_data', JSON.stringify({
     slot:          _slot,
     userXI:        state.userXI,
@@ -503,6 +611,7 @@ function _persistMatchData() {
     userCaptain:   state.userCaptain,
     oppCaptain:    state.oppCaptain,
     venueId:       state.venueId,
+    venue:         venueObj,
     toss: {
       outcome:      _tossOutcome,
       userWon:      _userWonToss,
@@ -513,54 +622,47 @@ function _persistMatchData() {
   }));
 }
 
-// ─── GO TO MATCH ────────────────────────────────────────────────
+
+// ─── GO TO MATCH ─────────────────────────────────────────────────────────────
 function goToMatch() {
-  // ✅ FIX 2: Use slotIndex (camelCase) consistently — matches what friendly.js stores
-  const slotIndex = _slot?.slotIndex;
-  if (slotIndex === undefined || slotIndex === null) {
-    toast('Error: Match slot not found.');
+  if (!_slot || _slot.slotIndex === undefined) {
+    toast("Error: Match slot not found.");
     return;
   }
 
-  // ✅ FIX 3: Use the complete match data already built by _persistMatchData()
-  // instead of building a new incomplete object
-  _persistMatchData();
-  const completeMatchData = JSON.parse(sessionStorage.getItem('ucm_match_data') || '{}');
+  const venueObj = _allVenues.find(v => v.id === state.venueId) || null;
 
-  // ✅ FIX 4: No conditional wrapper — saveMatchData is always available
-  // since save_load.js is loaded as plain script before lineup.js
-  try {
-    window.saveMatchData(slotIndex, completeMatchData);
-    sessionStorage.setItem('UCM_CURRENT_MATCH', JSON.stringify(completeMatchData));
+  const matchData = {
+    userTeam: _slot.userTeam,
+    oppTeam:  _slot.oppTeam,
+    overs:    _slot.overs,
+    diff:     _slot.difficulty,
+    venueId:  state.venueId,
+    venue:    venueObj,
+    userXI:   state.userXI,
+    oppXI:    state.oppXI,
+    toss: {
+      outcome:      _tossOutcome,
+      userWon:      _userWonToss,
+      userDecision: _userDecision
+    }
+  };
 
-        // ── DEBUG: Full saved data log ──────────────────────────────
-    console.group('✅ MATCH SAVED — Full Data');
-    console.log('📌 Slot Index:', slotIndex);
-    console.log('🏏 User Team:', completeMatchData.slot?.userTeam);
-    console.log('🆚 Opp Team:', completeMatchData.slot?.oppTeam);
-    console.log('⚙️ Overs:', completeMatchData.slot?.overs, '| Difficulty:', completeMatchData.slot?.difficulty);
-    console.log('👥 User XI:', completeMatchData.userXI?.map(p => p.name));
-    console.log('👥 Opp XI:', completeMatchData.oppXI?.map(p => p.name));
-    console.log('🏃 User Bat Order (IDs):', completeMatchData.userBatOrder);
-    console.log('🏃 Opp Bat Order (IDs):', completeMatchData.oppBatOrder);
-    console.log('🎳 Bowl Assign:', completeMatchData.bowlAssign);
-    console.log('🎳 Opp Bowl Assign:', completeMatchData.oppBowlAssign);
-    console.log('🎖️ User Captain ID:', completeMatchData.userCaptain);
-    console.log('🎖️ Opp Captain ID:', completeMatchData.oppCaptain);
-    console.log('🏟️ Venue ID:', completeMatchData.venueId);
-    console.log('🪙 Toss:', completeMatchData.toss);
-    console.log('📦 Full Raw Object:', completeMatchData);
-    console.groupEnd();
-    // ────────────────────────────────────────────────────────────
+  sessionStorage.setItem('UCM_CURRENT_MATCH', JSON.stringify(matchData));
 
-    window.location.href = 'match.html';
-  } catch (e) {
-    console.error('Save Failed:', e);
-    toast('Failed to save match. Please try again.');
+  if (window.saveMatchData) {
+    try {
+      window.saveMatchData(_slot.slotIndex, matchData);
+      window.location.href = 'match.html';
+    } catch (e) {
+      console.error("Save Failed:", e);
+      toast("Failed to save match.");
+    }
   }
 }
 
-// ─── VENUE HELPERS ──────────────────────────────────────────────
+
+// ─── VENUE HELPERS ───────────────────────────────────────────────────────────
 function _getVenueSide(v) {
   if (!v) return 'neutral';
   if (v.team_id) {
@@ -583,7 +685,8 @@ function _venueSideLabel(v) {
   return s === 'home' ? '🏠 Your Home' : s === 'away' ? '✈️ Away' : '⚖️ Neutral';
 }
 
-// ─── FORMAT HELPER ──────────────────────────────────────────────
+
+// ─── FORMAT HELPER ───────────────────────────────────────────────────────────
 function _formatFromOvers() {
   const o = Number(_slot?.overs) || 20;
   if (o <= 5)  return 'T5';
@@ -593,7 +696,8 @@ function _formatFromOvers() {
   return 'Test';
 }
 
-// ─── EXPOSE TO HTML (onclick) ───────────────────────────────────
+
+// ─── EXPOSE TO HTML (onclick) ────────────────────────────────────────────────
 window.pickHT = function(choice) {
   if (_tossDone) return;
   _userChoice = choice;
@@ -640,6 +744,7 @@ window.pickBatBowl = function(choice) {
   document.getElementById(`btn-${choice}`)?.classList.add('selected');
   const decTxt = $('toss-decision-txt');
   if (decTxt) decTxt.textContent = `You chose to ${choice} first!`;
-  $('btn-lu-next').disabled = false;
+  const nb = $('btn-lu-next');
+  if (nb) nb.disabled = false;
   _persistMatchData();
 };

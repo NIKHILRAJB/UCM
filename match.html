@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>UCM — Match</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/match.css">
+  <link rel="stylesheet" href="css/match-patch.css">
+</head>
+<body>
+
+  <!-- FIX #82: Skip link -->
+  <a class="sr-only sr-only--focusable" href="#match-main">Skip to main content</a>
+
+  <!-- ═══ 1. TOP MODE BAR ═══ -->
+  <header class="mode-bar" id="mode-bar">
+    <button class="mode-bar__back" id="btn-back" aria-label="Back">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 12H5M12 5l-7 7 7 7"/>
+      </svg>
+    </button>
+    <div class="mode-bar__brand">
+      <svg class="mode-bar__logo" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-label="UCM">
+        <circle cx="12" cy="12" r="10" stroke="#F5A623" stroke-width="1.8"/>
+        <path d="M6 8 Q12 6 18 8" stroke="#F5A623" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+        <path d="M6 16 Q12 18 18 16" stroke="#F5A623" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+        <path d="M12 2 Q14 12 12 22" stroke="#F5A623" stroke-width="1" fill="none" stroke-linecap="round"/>
+        <path d="M12 2 Q10 12 12 22" stroke="#F5A623" stroke-width="1" fill="none" stroke-linecap="round"/>
+      </svg>
+      <span class="mode-bar__name">UCM</span>
+    </div>
+    <div class="mode-bar__pills">
+      <span class="mode-pill" id="pill-format">T20</span>
+      <span class="mode-pill mode-pill--mode" id="pill-mode">Friendly</span>
+    </div>
+  </header>
+
+  <!-- ═══ 2. ICON TAB BAR ═══ -->
+  <nav class="tab-bar" id="tab-bar" role="tablist" aria-label="Match Panels">
+    <button class="tab-btn active" role="tab" data-sheet="bat" aria-label="Batting Order">
+      <span class="tab-icon">🏏</span><span class="tab-label">BAT</span>
+      <span class="tab-dot hidden" id="tab-dot-bat"></span>
+    </button>
+    <button class="tab-btn" role="tab" data-sheet="bowl" aria-label="Bowling Order">
+      <span class="tab-icon">🎳</span><span class="tab-label">BOWL</span>
+      <span class="tab-dot hidden" id="tab-dot-bowl"></span>
+    </button>
+    <button class="tab-btn" role="tab" data-sheet="score" aria-label="Scorecard">
+      <span class="tab-icon">📋</span><span class="tab-label">SCORE</span>
+      <span class="tab-dot hidden" id="tab-dot-score"></span>
+    </button>
+    <button class="tab-btn" role="tab" data-sheet="stats" aria-label="Match Stats">
+      <span class="tab-icon">📊</span><span class="tab-label">STATS</span>
+      <span class="tab-dot hidden" id="tab-dot-stats"></span>
+    </button>
+    <button class="tab-btn" role="tab" data-sheet="settings" aria-label="Settings">
+      <span class="tab-icon">⚙️</span><span class="tab-label">SETTINGS</span>
+      <span class="tab-dot hidden" id="tab-dot-settings"></span>
+    </button>
+  </nav>
+
+  <!-- ═══ MAIN LIVE SCREEN ═══ -->
+  <main class="match-main" id="match-main">
+
+    <!-- FIX #7: Free Hit Banner -->
+    <div class="freehit-banner hidden" id="freehit-banner" aria-live="assertive" aria-atomic="true">
+      ⚡ FREE HIT!
+    </div>
+
+    <!-- FIX #65: over dots row — empty, JS renders dots -->
+    <section class="over-dots-card" aria-label="This Over">
+      <div class="over-dots-row" id="over-dots-row"></div>
+    </section>
+
+    <!-- ═══ 4. LIVE SCOREBOARD ═══ -->
+    <section class="scoreboard-card" id="scoreboard-card" aria-label="Live Score">
+      <div class="scoreboard-header">
+        <span class="scoreboard-team" id="sb-team-name"></span>
+        <span class="scoreboard-innings-pill" id="sb-innings-pill">INN 1</span>
+      </div>
+      <div class="scoreboard-score-block">
+        <span class="scoreboard-runs" id="sb-runs">0</span>
+        <span class="scoreboard-slash">/</span>
+        <span class="scoreboard-wickets" id="sb-wickets">0</span>
+      </div>
+      <div class="scoreboard-overs" id="sb-overs">0.0 Overs</div>
+      <div class="scoreboard-target-row hidden" id="sb-target-row">
+        <span id="sb-target-text">Target: —</span>
+        <span class="scoreboard-divider">|</span>
+        <span id="sb-need-text">Need: —</span>
+      </div>
+      <div class="scoreboard-rr-row">
+        <span class="rr-pill" id="sb-crr">CRR: —</span>
+        <!-- FIX #2: id and classes separated -->
+        <span class="rr-pill rr-pill--danger hidden" id="sb-rrr">RRR: —</span>
+      </div>
+    </section>
+
+    <!-- ═══ 5. COMMENTARY LOG ═══ -->
+    <section class="commentary-card" id="commentary-card" aria-label="Commentary" aria-live="polite">
+      <div class="commentary-content" id="commentary-content">
+        <span class="commentary-over-prefix" id="commentary-over"></span>
+        <span class="commentary-text" id="commentary-text">Match about to begin...</span>
+      </div>
+    </section>
+
+    <!-- ═══ 6. BATTING PAIR + BOWLER CARD ═══ -->
+    <section class="players-row" aria-label="Active Players">
+      <div class="batting-col" id="batting-col">
+        <!-- FIX #20: data-pid="" injected by JS via renderBatterCard() -->
+        <div class="batter-card batter-card--striker" id="card-striker" role="button" tabindex="0" aria-label="Striker info" data-pid="">
+          <div class="batter-card__header">
+            <span class="batter-star" id="striker-star" aria-hidden="true">★</span>
+            <span class="batter-name" id="striker-name"></span>
+          </div>
+          <div class="batter-score" id="striker-score">0 <span class="batter-balls">(0)</span></div>
+          <div class="batter-sr" id="striker-sr">SR: —</div>
+          <div class="batter-meta">
+            <span class="batter-form-pill" id="striker-form"></span>
+            <span class="batter-role-pill" id="striker-role"></span>
+          </div>
+        </div>
+        <!-- FIX #20 -->
+        <div class="batter-card batter-card--nonstriker" id="card-nonstriker" role="button" tabindex="0" aria-label="Non-striker info" data-pid="">
+          <div class="batter-card__header">
+            <span class="batter-name" id="nonstriker-name"></span>
+          </div>
+          <div class="batter-score" id="nonstriker-score">0 <span class="batter-balls">(0)</span></div>
+          <div class="batter-sr" id="nonstriker-sr">SR: —</div>
+          <div class="batter-meta">
+            <span class="batter-form-pill" id="nonstriker-form"></span>
+            <span class="batter-role-pill" id="nonstriker-role"></span>
+          </div>
+        </div>
+      </div>
+      <!-- FIX #20 -->
+      <div class="bowler-col" id="bowler-col">
+        <div class="bowler-card" id="card-bowler" role="button" tabindex="0" aria-label="Bowler info" data-pid="">
+          <div class="batter-card__header">
+            <span class="batter-name" id="bowler-name"></span>
+          </div>
+          <div class="bowler-type-pill" id="bowler-type">PACE</div>
+          <div class="bowler-figures" id="bowler-figures">0-0-0-0</div>
+          <div class="bowler-econ" id="bowler-econ">Econ: —</div>
+          <div class="bowler-quota-wrap">
+            <div class="bowler-quota-bar-track">
+              <div class="bowler-quota-bar-fill" id="bowler-quota-fill"></div>
+            </div>
+            <span class="bowler-quota-text" id="bowler-quota-text">— ov left</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ 7. USER INPUT PANEL ═══ -->
+    <section class="input-panel" id="input-panel" aria-label="Intent Controls">
+
+      <!-- FIX #63: hidden by default; JS shows when user bats -->
+      <div class="intent-row intent-row--striker hidden" id="intent-row-striker">
+        <span class="intent-label" id="intent-label-striker">
+          <span class="intent-star" aria-hidden="true">★</span>
+          <span id="intent-name-striker"></span>
+        </span>
+        <div class="intent-btns" id="intent-btns-striker" role="group" aria-label="Striker Intent">
+          <button class="intent-btn" data-intent="defensive" aria-pressed="false">DEF</button>
+          <button class="intent-btn active" data-intent="neutral" aria-pressed="true">NEU</button>
+          <button class="intent-btn" data-intent="aggressive" aria-pressed="false">AGG</button>
+          <button class="intent-btn intent-btn--warn" data-intent="attack" aria-pressed="false">ATK⚠️</button>
+        </div>
+      </div>
+
+      <!-- FIX #63 -->
+      <div class="intent-row intent-row--nonstriker hidden" id="intent-row-nonstriker">
+        <span class="intent-label" id="intent-label-nonstriker">
+          <span id="intent-name-nonstriker"></span>
+        </span>
+        <div class="intent-btns" id="intent-btns-nonstriker" role="group" aria-label="Non-Striker Intent">
+          <button class="intent-btn" data-intent="defensive" aria-pressed="false">DEF</button>
+          <button class="intent-btn active" data-intent="neutral" aria-pressed="true">NEU</button>
+          <button class="intent-btn" data-intent="aggressive" aria-pressed="false">AGG</button>
+          <button class="intent-btn intent-btn--warn" data-intent="attack" aria-pressed="false">ATK⚠️</button>
+        </div>
+      </div>
+
+      <div class="intent-divider"></div>
+
+      <div class="intent-row intent-row--bowler" id="intent-row-bowler">
+        <span class="intent-label" id="intent-label-bowler">
+          <span id="intent-name-bowler"></span>
+        </span>
+        <div class="intent-btns hidden" id="intent-btns-bowler" role="group" aria-label="Bowler Intent">
+          <button class="intent-btn" data-intent="defensive" aria-pressed="false">DEF</button>
+          <button class="intent-btn active" data-intent="neutral" aria-pressed="true">NEU</button>
+          <button class="intent-btn" data-intent="aggressive" aria-pressed="false">AGG</button>
+          <button class="intent-btn" data-intent="attack" aria-pressed="false">ATK</button>
+        </div>
+        <div class="auto-pills" id="auto-pills-bowler">
+          <span class="auto-pill" id="auto-pill-bowler">AUTO: Neutral</span>
+        </div>
+      </div>
+
+      <!-- FIX #37: Opponent intent row -->
+      <div class="intent-row intent-row--opponent hidden" id="opponent-intent-row">
+        <span class="intent-label" id="intent-label-opponent">
+          <span id="intent-name-opponent"></span>
+        </span>
+        <div class="auto-pills" id="auto-pills-opponent">
+          <span class="auto-pill" id="auto-pill-opponent">AUTO: Neutral</span>
+        </div>
+      </div>
+
+      <!-- Field row -->
+      <div class="field-row hidden" id="field-row">
+        <span class="field-label">Field:</span>
+        <button class="field-dropdown" id="btn-field-dropdown" aria-haspopup="listbox" aria-expanded="false">
+          Balanced ▾
+        </button>
+        <span class="field-changes-count" id="field-changes-count">0/6 changes</span>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- ═══ 8. FIXED ACTION BAR ═══ -->
+  <footer class="action-bar" id="action-bar">
+    <div class="action-bar__progress hidden" id="auto-progress-wrap">
+      <div class="auto-progress-track">
+        <div class="auto-progress-fill" id="auto-progress-fill"></div>
+      </div>
+      <span class="auto-progress-label" id="auto-progress-label">Simulating...</span>
+    </div>
+    <div class="action-bar__btns">
+      <button class="btn-bowl" id="btn-bowl" aria-label="Simulate one ball">BOWL</button>
+      <button class="btn-next-over" id="btn-next-over" aria-label="Simulate full over">NEXT OVER</button>
+    </div>
+  </footer>
+
+  <!-- ═══ OVERLAYS & POPUPS ═══ -->
+  <div class="scrim hidden" id="scrim" aria-hidden="true"></div>
+
+  <!-- FIELD POPUP — FIX #3 data-field→data-preset | FIX #34 close btn | FIX #60 no hardcoded active -->
+  <div class="field-popup hidden" id="field-popup" role="dialog" aria-modal="true" aria-labelledby="field-popup-title">
+    <h3 class="field-popup__title" id="field-popup-title">Select Field Setting</h3>
+    <div class="field-popup__grid">
+      <button class="field-option" data-preset="attacking">Attacking</button>
+      <button class="field-option" data-preset="balanced">Balanced</button>
+      <button class="field-option" data-preset="defensive">Defensive</button>
+      <button class="field-option" data-preset="saving">Saving</button>
+      <button class="field-option" data-preset="spinTrap">Spin Trap</button>
+      <button class="field-option" data-preset="paceTrap">Pace Trap</button>
+    </div>
+    <div class="field-popup__footer">
+      <span id="field-popup-changes">Changes used: 0 of 6</span>
+      <button class="field-popup__close" id="btn-close-field-popup" aria-label="Close field popup">✕</button>
+    </div>
+  </div>
+
+  <!-- MINI INFO POPUP -->
+  <div class="mini-popup hidden" id="mini-popup" role="tooltip" aria-live="polite">
+    <div class="mini-popup__header">
+      <span class="mini-popup__name" id="mini-name"></span>
+      <span class="mini-popup__role" id="mini-role"></span>
+    </div>
+    <div class="mini-popup__stat"><span>PS:</span> <strong id="mini-ps">—</strong></div>
+    <div class="mini-popup__stat"><span>Runs:</span> <strong id="mini-runs">—</strong></div>
+    <div class="mini-popup__stat"><span>Balls:</span> <strong id="mini-balls">—</strong></div>
+    <div class="mini-popup__stat"><span>SR:</span> <strong id="mini-sr">—</strong></div>
+    <div class="mini-popup__stat"><span>Form:</span> <strong id="mini-form">—</strong></div>
+    <div class="mini-popup__stat"><span>Fatigue:</span> <strong id="mini-fatigue">—</strong></div>
+    <button class="mini-popup__close" id="btn-mini-close" aria-label="Close">✕</button>
+  </div>
+
+  <!-- DRS PROMPT -->
+  <div class="drs-overlay hidden" id="drs-overlay" role="dialog" aria-modal="true" aria-labelledby="drs-verdict">
+    <div class="drs-card">
+      <div class="drs-header">
+        <span class="drs-icon">⚖️</span>
+        <div>
+          <div class="drs-verdict" id="drs-verdict"></div>
+          <div class="drs-matchup" id="drs-matchup"></div>
+        </div>
+      </div>
+      <p class="drs-question">Do you want to Review?</p>
+      <div class="drs-bar-section">
+        <div class="drs-bar-label">CHANCE OF REMAINING OUT</div>
+        <div class="drs-bar-track">
+          <div class="drs-bar-fill" id="drs-bar-fill"></div>
+        </div>
+        <div class="drs-bar-ends"><span>OUT</span><span id="drs-pct">—%</span><span>NOT OUT</span></div>
+        <div class="drs-message" id="drs-message"></div>
+        <div class="drs-overturn" id="drs-overturn"></div>
+      </div>
+      <div class="drs-reviews">
+        <span>Reviews:</span>
+        <span id="drs-review-indicators"></span>
+        <span id="drs-reviews-left">Remaining: 2</span>
+      </div>
+      <div class="drs-btns">
+        <button class="drs-btn drs-btn--yes" id="btn-drs-yes">YES — REVIEW</button>
+        <button class="drs-btn drs-btn--no" id="btn-drs-no">No, Accept</button>
+      </div>
+      <div class="drs-timer">
+        <div class="drs-timer-track"><div class="drs-timer-fill" id="drs-timer-fill"></div></div>
+        <span id="drs-timer-text">⏱ 10 sec...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIX #6: DRS RESULT OVERLAY -->
+  <div class="drs-result-overlay hidden" id="drs-result-overlay" role="dialog" aria-modal="true" aria-label="DRS Result">
+    <div class="drs-result-card">
+      <div class="drs-result-icon" id="drs-result-icon">✅</div>
+      <div class="drs-result-title" id="drs-result-title">DECISION OVERTURNED</div>
+      <div class="drs-result-body" id="drs-result-body"></div>
+      <div class="drs-result-reviews" id="drs-result-reviews"></div>
+      <button class="btn-continue" id="btn-drs-result-dismiss">Continue</button>
+    </div>
+  </div>
+
+  <!-- WICKET CARD -->
+  <div class="wicket-overlay hidden" id="wicket-overlay" role="dialog" aria-modal="true" aria-label="Wicket">
+    <div class="wicket-card">
+      <div class="wicket-header">🏏 WICKET!</div>
+      <div class="wicket-details">
+        <div class="wicket-player" id="wkt-player"></div>
+        <div class="wicket-score" id="wkt-score"></div>
+        <div class="wicket-boundaries" id="wkt-boundaries"></div>
+      </div>
+      <div class="wicket-next" id="wkt-next-section">
+        <div class="wicket-next-text" id="wkt-next-label">Next: <span id="wkt-next-player"></span> comes in</div>
+        <div class="wicket-intent-label">Set his intent ↓</div>
+        <div class="intent-btns" id="wkt-intent-btns" role="group" aria-label="New Batter Intent">
+          <button class="intent-btn" data-intent="defensive">DEF</button>
+          <button class="intent-btn active" data-intent="neutral">NEU ★</button>
+          <button class="intent-btn" data-intent="aggressive">AGG</button>
+          <button class="intent-btn" data-intent="attack">ATK</button>
+        </div>
+      </div>
+      <button class="btn-continue" id="btn-wkt-continue">Continue</button>
+    </div>
+  </div>
+
+  <!-- INNINGS BREAK — FIX #18/#19: IDs inn-break-score / inn-break-target -->
+  <div class="innings-break-overlay hidden" id="innings-break-overlay" role="dialog" aria-modal="true" aria-labelledby="ibreak-title">
+    <div class="innings-break-card">
+      <div class="innings-break-title" id="ibreak-title">END OF INNINGS 1</div>
+      <div class="innings-break-score">
+        <span class="ibreak-team" id="ibreak-team"></span>
+        <span class="ibreak-score" id="inn-break-score"></span>
+        <span class="ibreak-overs" id="ibreak-overs"></span>
+      </div>
+      <div class="innings-break-target">
+        <span class="ibreak-target-label">Target for</span>
+        <span class="ibreak-target-team" id="ibreak-target-team"></span>
+        <span class="ibreak-target-runs" id="inn-break-target"></span>
+      </div>
+      <div class="innings-break-rrr">Required RR: <strong id="ibreak-rrr"></strong></div>
+      <button class="btn-continue" id="btn-innings-start">Start Innings 2 →</button>
+    </div>
+  </div>
+
+  <!-- MATCH RESULT — FIX #13-17 IDs | FIX #33 dual buttons -->
+  <div class="result-overlay hidden" id="result-overlay" role="dialog" aria-modal="true" aria-label="Match Result">
+    <div class="result-card">
+      <div class="result-trophy">🏆 MATCH RESULT</div>
+      <div class="result-winner" id="result-winner"></div>
+      <div class="result-margin" id="result-margin"></div>
+      <div class="result-divider"></div>
+      <div class="result-scores">
+        <div class="result-score-row">
+          <span class="result-score-team" id="result-inn1-team"></span>
+          <span class="result-score-val" id="result-inn1-score"></span>
+          <span class="result-score-ov" id="result-inn1-ov"></span>
+        </div>
+        <div class="result-score-row">
+          <span class="result-score-team" id="result-inn2-team"></span>
+          <span class="result-score-val" id="result-inn2-score"></span>
+          <span class="result-score-ov" id="result-inn2-ov"></span>
+        </div>
+      </div>
+      <div class="result-divider"></div>
+      <div class="potm-section">
+        <div class="potm-title">🏅 Player of the Match</div>
+        <div class="potm-player" id="result-potm-name"></div>
+      </div>
+      <div class="result-divider"></div>
+      <div class="highlights-section">
+        <div class="highlights-title">MATCH HIGHLIGHTS</div>
+        <div class="highlight-row"><span class="highlight-icon">🏏</span><div><div class="highlight-label">Top Scorer</div><div class="highlight-value" id="res-top-scorer"></div></div></div>
+        <div class="highlight-row"><span class="highlight-icon">🎳</span><div><div class="highlight-label">Best Bowling</div><div class="highlight-value" id="res-best-bowl"></div></div></div>
+        <div class="highlight-row"><span class="highlight-icon">🤝</span><div><div class="highlight-label">Best Partnership</div><div class="highlight-value" id="res-best-partner"></div></div></div>
+        <div class="highlight-row"><span class="highlight-icon">💥</span><div><div class="highlight-label">Most Sixes</div><div class="highlight-value" id="res-most-sixes"></div></div></div>
+        <div class="highlight-row"><span class="highlight-icon">🎯</span><div><div class="highlight-label">Best Economy</div><div class="highlight-value" id="res-best-econ"></div></div></div>
+      </div>
+      <div class="result-divider"></div>
+      <div class="result-summary-section">
+        <div class="result-summary-title">📊 Match Summary</div>
+        <div class="result-summary-grid">
+          <div class="res-sum-header"><span id="res-sum-team-a"></span><span>Stat</span><span id="res-sum-team-b"></span></div>
+          <div class="res-sum-row"><span id="res-sum-bound-a">—</span><span class="res-sum-label">Boundaries</span><span id="res-sum-bound-b">—</span></div>
+          <div class="res-sum-row"><span id="res-sum-dot-a">—</span><span class="res-sum-label">Dot Balls</span><span id="res-sum-dot-b">—</span></div>
+          <div class="res-sum-row"><span id="res-sum-extras-a">—</span><span class="res-sum-label">Extras</span><span id="res-sum-extras-b">—</span></div>
+          <div class="res-sum-row"><span id="res-sum-sixes-a">—</span><span class="res-sum-label">Sixes</span><span id="res-sum-sixes-b">—</span></div>
+          <div class="res-sum-row"><span id="res-sum-fours-a">—</span><span class="res-sum-label">Fours</span><span id="res-sum-fours-b">—</span></div>
+        </div>
+      </div>
+      <!-- FIX #33 -->
+      <div class="result-actions">
+        <button class="btn-result-secondary" id="btn-view-scorecard">View Full Scorecard</button>
+        <button class="btn-result-secondary" id="btn-view-stats">View Full Stats</button>
+        <button class="btn-continue" id="btn-result-home">🏠 Home</button>
+        <button class="btn-continue btn-continue--gold" id="btn-result-again">▶ Play Again</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIX #5: RESUME OVERLAY -->
+  <div class="resume-overlay hidden" id="resume-overlay" role="dialog" aria-modal="true" aria-labelledby="resume-title">
+    <div class="resume-card">
+      <div class="resume-title" id="resume-title">⏸ Resume Match?</div>
+      <div class="resume-body">A previous session was found. Continue from where you left off?</div>
+      <div class="resume-btns">
+        <button class="btn-resume-yes" id="btn-resume-yes">Continue Match</button>
+        <button class="btn-resume-no" id="btn-resume-no">Start Fresh</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ABANDON OVERLAY — FIX #9: id confirmed -->
+  <div class="abandon-overlay hidden" id="abandon-overlay" role="dialog" aria-modal="true" aria-labelledby="abandon-title">
+    <div class="abandon-card">
+      <div class="abandon-title" id="abandon-title">⚠️ Leave Match?</div>
+      <div class="abandon-body">Are you sure you want to abandon this match? All progress will be lost.</div>
+      <div class="abandon-btns">
+        <button class="btn-abandon-cancel" id="btn-abandon-cancel">Stay</button>
+        <button class="btn-abandon-confirm" id="btn-abandon-confirm">Abandon</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ BOTTOM SHEETS ═══ -->
+
+  <!-- BAT — FIX #80 aria-labelledby -->
+  <div class="bottom-sheet hidden" id="sheet-bat" role="dialog" aria-modal="true" aria-labelledby="sheet-bat-title">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h2 class="sheet-title" id="sheet-bat-title">🏏 Batting Order</h2>
+      <button class="sheet-close" data-sheet="bat" aria-label="Close">✕</button>
+    </div>
+    <div class="sheet-body" id="sheet-bat-body">
+      <div class="sheet-placeholder">Loading batting order...</div>
+    </div>
+  </div>
+
+  <!-- BOWL — FIX #80 -->
+  <div class="bottom-sheet hidden" id="sheet-bowl" role="dialog" aria-modal="true" aria-labelledby="sheet-bowl-title">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h2 class="sheet-title" id="sheet-bowl-title">🎳 Bowling Order</h2>
+      <button class="sheet-close" data-sheet="bowl" aria-label="Close">✕</button>
+    </div>
+    <div class="sheet-header-sub">
+      <label class="auto-pick-toggle">
+        <input type="checkbox" id="chk-auto-pick" />
+        <span>Auto-pick bowler</span>
+      </label>
+    </div>
+    <div class="sheet-body" id="sheet-bowl-body">
+      <div class="sheet-placeholder">Loading bowling order...</div>
+    </div>
+  </div>
+
+  <!-- SCORECARD — FIX #4 data-tab | FIX #68 Status col | FIX #69 NB+Wd | FIX #70 placeholder | FIX #71 Extras:— | FIX #80 -->
+  <div class="bottom-sheet hidden" id="sheet-score" role="dialog" aria-modal="true" aria-labelledby="sheet-score-title">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h2 class="sheet-title" id="sheet-score-title">📋 Scorecard</h2>
+      <button class="sheet-close" data-sheet="score" aria-label="Close">✕</button>
+    </div>
+    <div class="sheet-inner-tabs" role="tablist">
+      <button class="sheet-inner-tab active" data-tab="batting" role="tab" aria-selected="true">Batting</button>
+      <button class="sheet-inner-tab" data-tab="bowling" role="tab" aria-selected="false">Bowling</button>
+    </div>
+    <div class="sheet-body" id="sheet-score-body">
+      <div id="score-tab-batting">
+        <table class="score-table" aria-label="Batting Scorecard">
+          <thead>
+            <tr>
+              <th>Batter</th><th>R(B)</th><th>4s</th><th>6s</th><th>SR</th><th>How Out</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="score-batting-tbody">
+            <tr><td colspan="7" class="sheet-placeholder">No balls bowled yet.</td></tr>
+          </tbody>
+        </table>
+        <!-- FIX #70: placeholder p -->
+        <div class="score-fow" id="score-fow">
+          <p class="sheet-placeholder">No wickets yet.</p>
+        </div>
+      </div>
+      <div id="score-tab-bowling" class="hidden">
+        <table class="score-table" aria-label="Bowling Scorecard">
+          <thead>
+            <tr>
+              <th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th>NB</th><th>Wd</th><th>Econ</th>
+            </tr>
+          </thead>
+          <tbody id="score-bowling-tbody">
+            <tr><td colspan="8" class="sheet-placeholder">No balls bowled yet.</td></tr>
+          </tbody>
+        </table>
+        <!-- FIX #71: Extras: — not 0 -->
+        <div class="score-extras" id="score-extras">Extras: —</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATS — FIX #36 data-inn="both" | FIX #75 team labels | FIX #72/#73 canvas no attrs | FIX #80 -->
+  <div class="bottom-sheet hidden" id="sheet-stats" role="dialog" aria-modal="true" aria-labelledby="sheet-stats-title">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h2 class="sheet-title" id="sheet-stats-title">📊 Match Stats</h2>
+      <button class="sheet-close" data-sheet="stats" aria-label="Close">✕</button>
+    </div>
+    <div class="innings-toggle" role="group" aria-label="Innings filter">
+      <button class="inn-toggle-btn active" data-inn="1">Inn 1</button>
+      <button class="inn-toggle-btn" data-inn="2">Inn 2</button>
+      <button class="inn-toggle-btn" data-inn="both">Both</button>
+    </div>
+    <div class="sheet-body" id="sheet-stats-body">
+      <div class="stats-section">
+        <div class="stats-section-title">SCORING BREAKDOWN</div>
+        <!-- FIX #75: team label row -->
+        <div class="stats-team-labels" id="stats-team-labels">
+          <span id="stats-team-label-a"></span>
+          <span></span>
+          <span id="stats-team-label-b"></span>
+        </div>
+        <div class="stats-breakdown-grid" id="stats-breakdown-grid">
+          <div class="stats-breakdown-row"><span class="stats-val-a" id="sb-pp-a">—</span><span class="stats-label">Power Play</span><span class="stats-val-b" id="sb-pp-b">—</span></div>
+          <div class="stats-breakdown-row"><span class="stats-val-a" id="sb-mid-a">—</span><span class="stats-label">Middle Overs</span><span class="stats-val-b" id="sb-mid-b">—</span></div>
+          <div class="stats-breakdown-row"><span class="stats-val-a" id="sb-death-a">—</span><span class="stats-label">Final Overs</span><span class="stats-val-b" id="sb-death-b">—</span></div>
+          <div class="stats-divider-row"></div>
+          <div class="stats-breakdown-row"><span class="stats-val-a" id="sb-sixes-a">—</span><span class="stats-label">Sixes</span><span class="stats-val-b" id="sb-sixes-b">—</span></div>
+          <div class="stats-breakdown-row"><span class="stats-val-a" id="sb-fours-a">—</span><span class="stats-label">Fours</span><span class="stats-val-b" id="sb-fours-b">—</span></div>
+          <div class="stats-breakdown-row"><span class="stats-val-a" id="sb-dots-a">—%</span><span class="stats-label">Dot Balls</span><span class="stats-val-b" id="sb-dots-b">—%</span></div>
+        </div>
+      </div>
+      <div class="stats-section">
+        <div class="stats-section-title">PARTNERSHIPS</div>
+        <div class="partnerships-toggle" role="group">
+          <button class="pship-toggle-btn active" data-team="user" id="pship-btn-user">Your Team</button>
+          <button class="pship-toggle-btn" data-team="opp" id="pship-btn-opp">Opponent</button>
+        </div>
+        <div id="partnerships-list"><div class="sheet-placeholder">No partnerships yet.</div></div>
+      </div>
+      <div class="stats-section">
+        <div class="stats-section-title">MANHATTAN</div>
+        <div class="manhattan-toggle" role="group">
+          <button class="mann-toggle-btn active" data-team="user">Your Team</button>
+          <button class="mann-toggle-btn" data-team="opp">Opponent</button>
+          <button class="mann-toggle-btn" data-team="both">Both</button>
+        </div>
+        <!-- FIX #72: no hardcoded width/height -->
+        <div class="manhattan-wrap">
+          <canvas id="manhattan-canvas" aria-label="Runs per over chart"></canvas>
+        </div>
+      </div>
+      <div class="stats-section">
+        <div class="stats-section-title">RUN RATE</div>
+        <div class="rr-toggle" role="group">
+          <button class="rr-toggle-btn active" data-rr="crr">CRR</button>
+          <button class="rr-toggle-btn" data-rr="rrr">RRR</button>
+          <button class="rr-toggle-btn" data-rr="both">Both</button>
+        </div>
+        <!-- FIX #73: no hardcoded width/height -->
+        <div class="rr-chart-wrap">
+          <canvas id="rr-canvas" aria-label="Run rate chart"></canvas>
+        </div>
+        <div class="rr-legend">
+          <span class="rr-legend-crr">━ CRR</span>
+          <span class="rr-legend-rrr">╌ RRR</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS — FIX #79 btn-settings-restart | FIX #80 -->
+  <div class="bottom-sheet hidden" id="sheet-settings" role="dialog" aria-modal="true" aria-labelledby="sheet-settings-title">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h2 class="sheet-title" id="sheet-settings-title">⚙️ Settings</h2>
+      <button class="sheet-close" data-sheet="settings" aria-label="Close">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="settings-section">
+        <div class="settings-section-title">Simulation Controls</div>
+        <button class="btn-sim-remaining" id="btn-sim-remaining">▶ Simulate Remaining Innings</button>
+        <button class="btn-sim-full" id="btn-sim-full">▶▶ Simulate Full Match</button>
+        <div class="settings-row">
+          <span class="settings-label">Auto-commentary speed</span>
+          <div class="speed-toggle" role="group" aria-label="Commentary speed">
+            <button class="speed-btn" data-speed="slow">Slow</button>
+            <button class="speed-btn active" data-speed="normal">Normal ★</button>
+            <button class="speed-btn" data-speed="fast">Fast</button>
+          </div>
+        </div>
+      </div>
+      <div class="settings-section settings-section--danger">
+        <div class="settings-section-title settings-section-title--danger">Danger Zone</div>
+        <button class="btn-danger-abandon" id="btn-settings-abandon">🗑 Abandon Match</button>
+        <button class="btn-danger-restart" id="btn-settings-restart">↺ Restart from Toss</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ABANDON TYPE-TO-CONFIRM -->
+  <div class="abandon-type-overlay hidden" id="abandon-type-overlay" role="dialog" aria-modal="true" aria-labelledby="abandon-type-title">
+    <div class="abandon-type-card">
+      <div class="abandon-type-title" id="abandon-type-title">⚠️ Abandon Match</div>
+      <div class="abandon-type-body">Type <strong>ABANDON</strong> to confirm:</div>
+      <input class="abandon-type-input" id="abandon-type-input" type="text" placeholder="Type ABANDON here" autocomplete="off" />
+      <div class="abandon-type-btns">
+        <button class="btn-abandon-cancel" id="btn-atype-cancel">Cancel</button>
+        <button class="btn-abandon-confirm" id="btn-atype-confirm" disabled>Confirm Abandon</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIX #1: single script entry point only -->
+  <script type="module" src="js/match.js"></script>
+
+</body>
+</html>

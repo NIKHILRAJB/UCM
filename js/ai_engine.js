@@ -1,540 +1,734 @@
-// ============================================================
-// ai_engine.js — UCM AI Decision Engine
-// Handles: AI batting intent, bowling intent, field selection,
-//          bowler selection, batter promotion — all 3 difficulties
-// Depends on: match_engine.js (FORMAT_CONFIG, getPhase)
-// ============================================================
+/* ============================================================
+   UCM — AI-ENGINE.JS
+   All AI decision functions — batting intent, bowling intent,
+   field setting, over planning, batting order promotion,
+   and the AIPatternTracker class.
+   Pure functions only — no DOM, no state mutation.
+   ============================================================ */
 
-'use strict';
+/* ============================================================
+   CONSTANTS
+   ============================================================ */
 
-// ─────────────────────────────────────────────────────────────
-// DIFFICULTY MULTIPLIERS (applied to AI player PS in engine)
-// Defined here as reference — actual application in match_engine.js
-// ─────────────────────────────────────────────────────────────
-const AI_PS_MULTIPLIER = {
-  easy:   0.85,
-  medium: 1.00,
-  hard:   1.15
+const INTENTS = {
+  batting:  ['defensive', 'neutral', 'aggressive', 'attack'],
+  bowling:  ['defensive', 'neutral', 'aggressive', 'attack'],
+  field:    ['attacking', 'balanced', 'defensive', 'seam', 'spin', 'powerplay']
 };
 
-// ─────────────────────────────────────────────────────────────
-// AI BATTING INTENT PICKER
-// Decides what batting intent the AI uses for the current ball
-// ─────────────────────────────────────────────────────────────
-function ai_pick_batting_intent(params) {
-  const {
-    difficulty,
-    matchState,   // { overNumber, ballInOver, wicketsFallen, runsScored, target, ballsRemaining, runsRequired, inningsNumber }
-    batter,       // current batter object
-    bowler,       // current bowler object
-    format,
-    rng
-  } = params;
+const PHASES = {
+  powerplay: { overStart: 0,  overEnd: 5  },
+  middle:    { overStart: 6,  overEnd: 15 },
+  death:     { overStart: 16, overEnd: 19 }
+};
 
-  const diff = (difficulty || 'medium').toLowerCase();
+/* ============================================================
+   HELPERS
+   ============================================================ */
 
-  // ── EASY: random from weighted distribution ───────────────
-  if (diff === 'easy') {
-    const rand = rng.next();
-    if (rand < 0.25) return 'defensive';
-    if (rand < 0.55) return 'neutral';
-    if (rand < 0.80) return 'aggressive';
-    return 'attack';
-  }
-
-  // ── MEDIUM: situation-aware ───────────────────────────────
-  if (diff === 'medium') {
-    const { overNumber, wicketsFallen, inningsNumber, runsRequired, ballsRemaining } = matchState;
-    const phase = getPhaseAI(overNumber, format);
-
-    // Innings 2 — chasing
-    if (inningsNumber === 2 && ballsRemaining > 0) {
-      const rr = runsRequired / (ballsRemaining / 6); // required run rate
-      if (rr > 12)      return 'attack';
-      if (rr > 9)       return 'aggressive';
-      if (rr > 6)       return 'neutral';
-      return 'defensive';
-    }
-
-    // Innings 1 — setting target
-    if (wicketsFallen >= 7)  return 'defensive'; // protect tail
-    if (phase === 'death')   return 'aggressive';
-    if (phase === 'powerplay' && wicketsFallen < 2) return 'aggressive';
-    return 'neutral';
-  }
-
-  // ── HARD: matchup-aware + pattern reading ─────────────────
-  if (diff === 'hard') {
-    const { overNumber, wicketsFallen, inningsNumber, runsRequired, ballsRemaining } = matchState;
-    const phase = getPhaseAI(overNumber, format);
-
-    // Innings 2 pressure-based
-    if (inningsNumber === 2 && ballsRemaining > 0) {
-      const rr = runsRequired / (ballsRemaining / 6);
-      if (rr > 15)      return 'attack';
-      if (rr > 10)      return 'aggressive';
-      if (rr > 7)       return 'neutral';
-      if (rr < 4)       return 'defensive'; // cruising
-      return 'neutral';
-    }
-
-    // Batter subtype awareness
-    const batSub = (batter?.roleSubtype || '').toLowerCase();
-    if (batSub === 'finisher' && phase === 'death') return 'attack';
-    if (batSub === 'top order' && phase === 'powerplay' && wicketsFallen < 2) return 'aggressive';
-
-    // Bowler matchup — if weak bowler, attack
-    const bowlPS = bowler?.ps || 60;
-    if (bowlPS < 50) return 'aggressive';
-    if (bowlPS > 80 && wicketsFallen < 5) return 'defensive'; // respect elite bowler
-
-    if (phase === 'death')     return 'aggressive';
-    if (phase === 'powerplay') return 'aggressive';
-    return 'neutral';
-  }
-
-  return 'neutral';
+function _clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
 }
 
-// ─────────────────────────────────────────────────────────────
-// AI BOWLING INTENT PICKER
-// ─────────────────────────────────────────────────────────────
-function ai_pick_bowling_intent(params) {
-  const {
-    difficulty,
-    matchState,
-    bowler,
-    batter,
-    format,
-    rng
-  } = params;
-
-  const diff = (difficulty || 'medium').toLowerCase();
-
-  // ── EASY: random ──────────────────────────────────────────
-  if (diff === 'easy') {
-    const rand = rng.next();
-    if (rand < 0.25) return 'defensive';
-    if (rand < 0.60) return 'neutral';
-    if (rand < 0.85) return 'aggressive';
-    return 'attack';
+function _weightedPick(options, weights) {
+  // options: array of values, weights: parallel array of numbers
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < options.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return options[i];
   }
-
-  // ── MEDIUM: situation-aware ───────────────────────────────
-  if (diff === 'medium') {
-    const { overNumber, wicketsFallen, inningsNumber, runsRequired, ballsRemaining } = matchState;
-    const phase = getPhaseAI(overNumber, format);
-
-    if (phase === 'death' && inningsNumber === 1) return 'defensive'; // protect runs
-    if (wicketsFallen < 3 && phase === 'powerplay') return 'aggressive'; // attack early
-    if (inningsNumber === 2 && runsRequired < 20 && ballsRemaining > 12) return 'defensive';
-    return 'neutral';
-  }
-
-  // ── HARD: matchup counter-strategy ───────────────────────
-  if (diff === 'hard') {
-    const { overNumber, wicketsFallen, inningsNumber, runsRequired, ballsRemaining } = matchState;
-    const phase = getPhaseAI(overNumber, format);
-    const batSub  = (batter?.roleSubtype  || '').toLowerCase();
-    const bowlPS  = bowler?.ps || 60;
-    const batPS   = batter?.ps || 60;
-
-    // Elite bowler vs weak batter — go for wicket
-    if (bowlPS > 75 && batPS < 55) return 'attack';
-
-    // Finisher batter in death — don't give him room
-    if (batSub === 'finisher' && phase === 'death') return 'aggressive';
-
-    // Defending small target in death
-    if (inningsNumber === 2 && runsRequired < 15 && ballsRemaining <= 12) return 'defensive';
-
-    // Chasing and need wickets
-    if (inningsNumber === 1 && wicketsFallen < 4 && phase === 'powerplay') return 'aggressive';
-
-    if (phase === 'death') return 'aggressive';
-    return 'neutral';
-  }
-
-  return 'neutral';
+  return options[options.length - 1];
 }
 
-// ─────────────────────────────────────────────────────────────
-// AI FIELD SETTING PICKER
-// ─────────────────────────────────────────────────────────────
-function ai_pick_field_setting(params) {
-  const {
-    difficulty,
-    matchState,
-    bowler,
-    batter,
-    format,
-    overFieldChanges,  // how many field changes used this innings
-    rng
-  } = params;
-
-  const diff  = (difficulty || 'medium').toLowerCase();
-  const { overNumber, wicketsFallen, inningsNumber, runsRequired, ballsRemaining } = matchState;
-  const phase = getPhaseAI(overNumber, format);
-
-  // Max field changes per innings by difficulty
-  const maxChanges = { easy: 5, medium: 6, hard: 8 };
-  const limit = maxChanges[diff] || 6;
-
-  // If limit reached, keep current (return null = no change)
-  if (overFieldChanges >= limit) return null;
-
-  // ── EASY: random from simple set ─────────────────────────
-  if (diff === 'easy') {
-    const opts = ['balanced', 'attacking', 'defensive', 'saving'];
-    return opts[Math.floor(rng.next() * opts.length)];
-  }
-
-  // ── MEDIUM: situation-based ───────────────────────────────
-  if (diff === 'medium') {
-    if (phase === 'powerplay')     return 'attacking';
-    if (phase === 'death' && inningsNumber === 1) return 'saving';
-    if (inningsNumber === 2 && runsRequired < 20) return 'saving';
-    if (wicketsFallen >= 7)        return 'saving';
-    return 'balanced';
-  }
-
-  // ── HARD: full counter-strategy ──────────────────────────
-  if (diff === 'hard') {
-    const batSub    = (batter?.roleSubtype || '').toLowerCase();
-    const bowlType  = (bowler?.bowlingType || 'pace').toLowerCase();
-    const batType   = (batter?.battingType || '').toLowerCase(); // aggressive/defensive/neutral
-
-    // Counter aggressive batter
-    if (batType === 'aggressive' || batType === 'attack') return 'attacking';
-
-    // Spin on turner pitch — set spin trap
-    if (bowlType === 'spin') return 'spintrap';
-
-    // Pace on flat pitch — pace trap
-    if (bowlType === 'pace' && phase === 'powerplay') return 'pacetrap';
-
-    // Finisher at crease in death — saving field
-    if (batSub === 'finisher' && phase === 'death') return 'saving';
-
-    // Death overs — protect boundaries
-    if (phase === 'death') return 'saving';
-
-    // Chasing comfortably — don't panic
-    if (inningsNumber === 2 && runsRequired < 30 && ballsRemaining > 18) return 'defensive';
-
-    // Wickets in hand — attack
-    if (wicketsFallen < 4) return 'attacking';
-
-    return 'balanced';
-  }
-
-  return 'balanced';
-}
-
-// ─────────────────────────────────────────────────────────────
-// AI BOWLER SELECTOR
-// Picks best available bowler for the current over
-// ─────────────────────────────────────────────────────────────
-function ai_pick_bowler(params) {
-  const {
-    difficulty,
-    bowlingTeam,        // array of player objects
-    bowlerOverCounts,   // { playerId: oversCompleted }
-    lastBowlerId,       // player who bowled previous over
-    matchState,
-    batter,
-    format,
-    rng
-  } = params;
-
-  const diff    = (difficulty || 'medium').toLowerCase();
-  const cfg     = typeof FORMAT_CONFIG !== 'undefined' ? FORMAT_CONFIG[format] : { maxPerBowler: 4 };
-  const maxQuota = cfg?.maxPerBowler || 4;
-  const { overNumber } = matchState;
-  const phase   = getPhaseAI(overNumber, format);
-
-  // Filter eligible bowlers
-  const eligible = bowlingTeam.filter(p =>
-    p.id !== lastBowlerId &&
-    (bowlerOverCounts[p.id] || 0) < maxQuota
-  );
-
-  if (!eligible.length) {
-    // Fallback — anyone under quota
-    const fallback = bowlingTeam.filter(p => (bowlerOverCounts[p.id] || 0) < maxQuota);
-    return fallback[0]?.id || bowlingTeam[0]?.id;
-  }
-
-  // ── EASY: random ──────────────────────────────────────────
-  if (diff === 'easy') {
-    return eligible[Math.floor(rng.next() * eligible.length)].id;
-  }
-
-  // ── MEDIUM: highest PS from eligible ─────────────────────
-  if (diff === 'medium') {
-    eligible.sort((a, b) => (b.ps || 0) - (a.ps || 0));
-    return eligible[0].id;
-  }
-
-  // ── HARD: matchup-aware selection ────────────────────────
-  if (diff === 'hard') {
-    const batType = (batter?.battingType || '').toLowerCase(); // lhb/rhb
-    const batSub  = (batter?.roleSubtype  || '').toLowerCase();
-
-    // Score each eligible bowler
-    const scored = eligible.map(bowler => {
-      let score = bowler.ps || 60;
-
-      // Phase matching
-      const bowlSub = (bowler.roleSubtype || '').toLowerCase();
-      if (phase === 'powerplay' && bowlSub === 'powerplay bowler') score += 10;
-      if (phase === 'death'     && bowlSub === 'death bowler')     score += 10;
-
-      // Spin vs LHB advantage
-      if ((bowler.bowlingType || '').toLowerCase() === 'spin' && batType === 'lhb') score += 8;
-
-      // Target tail with pace
-      if ((bowler.bowlingType || '').toLowerCase() === 'pace' && batSub === 'tail') score += 12;
-
-      // Avoid overused bowler
-      const usageRatio = (bowlerOverCounts[bowler.id] || 0) / maxQuota;
-      if (usageRatio > 0.6) score -= 5;
-
-      return { id: bowler.id, score };
-    });
-
-    scored.sort((a, b) => b.score - a.score);
-    return scored[0].id;
-  }
-
-  return eligible[0].id;
-}
-
-// ─────────────────────────────────────────────────────────────
-// AI BATTER PROMOTION
-// Decides if a lower-order bat-heavy player should be promoted
-// ─────────────────────────────────────────────────────────────
-function ai_promote_batter(params) {
-  const {
-    difficulty,
-    remainingBatters,   // array of player objects yet to bat (in original order)
-    matchState,
-    bowler,
-    format,
-    rng
-  } = params;
-
-  const diff = (difficulty || 'medium').toLowerCase();
-
-  // Easy — never promotes
-  if (diff === 'easy') return null;
-
-  const { overNumber, wicketsFallen } = matchState;
-  const phase = getPhaseAI(overNumber, format);
-
-  // Medium — promote finisher in death if available
-  if (diff === 'medium') {
-    if (phase !== 'death') return null;
-    const finisher = remainingBatters.find(p => (p.roleSubtype || '').toLowerCase() === 'finisher');
-    return finisher ? finisher.id : null;
-  }
-
-  // Hard — promote based on matchup + phase
-  if (diff === 'hard') {
-    const bowlType = (bowler?.bowlingType || 'pace').toLowerCase();
-
-    // Promote best PS batter available if in death
-    if (phase === 'death') {
-      const best = remainingBatters.reduce((a, b) => ((a.ps || 0) > (b.ps || 0) ? a : b), remainingBatters[0]);
-      return best ? best.id : null;
-    }
-
-    // Promote spin-friendly batter against spinner
-    if (bowlType === 'spin') {
-      const spinFriendly = remainingBatters.find(p =>
-        (p.battingType || '').toLowerCase() === 'aggressive' && (p.ps || 0) > 60
-      );
-      return spinFriendly ? spinFriendly.id : null;
-    }
-
-    return null;
-  }
-
-  return null;
-}
-
-// ─────────────────────────────────────────────────────────────
-// AI FULL OVER DECISION — Next Over automation
-// Returns all decisions for an entire over at once
-// ─────────────────────────────────────────────────────────────
-function ai_decide_over(params) {
-  const {
-    difficulty,
-    matchState,
-    bowlingTeam,
-    bowlerOverCounts,
-    lastBowlerId,
-    batter,
-    bowlerCandidates,
-    format,
-    overFieldChanges,
-    rng
-  } = params;
-
-  const bowlerId     = ai_pick_bowler({ difficulty, bowlingTeam, bowlerOverCounts, lastBowlerId, matchState, batter, format, rng });
-  const bowler       = bowlingTeam.find(p => p.id === bowlerId);
-  const fieldSetting = ai_pick_field_setting({ difficulty, matchState, bowler, batter, format, overFieldChanges, rng });
-  const bowlingIntent = ai_pick_bowling_intent({ difficulty, matchState, bowler, batter, format, rng });
-
-  return {
-    bowlerId,
-    fieldSetting: fieldSetting || 'balanced',
-    bowlingIntent
-  };
-}
-
-// ─────────────────────────────────────────────────────────────
-// AI HARD — Pattern Tracker
-// Tracks user's batting patterns across balls to counter them
-// ─────────────────────────────────────────────────────────────
-class AIPatternTracker {
-  constructor() {
-    this.ballHistory    = []; // array of { intent, outcome, runs }
-    this.aggressionScore = 0; // higher = more aggressive
-    this.spinWeakness    = false;
-    this.bounceWeakness  = false;
-  }
-
-  recordBall(intent, outcome, runs, dismissalType) {
-    this.ballHistory.push({ intent, outcome, runs, dismissalType });
-
-    // Update aggression score
-    if (intent === 'attack' || intent === 'aggressive') this.aggressionScore += 1;
-    if (intent === 'defensive') this.aggressionScore = Math.max(0, this.aggressionScore - 1);
-
-    // Detect spin weakness — dismissed by spin twice
-    if (dismissalType && this.ballHistory.filter(b =>
-      b.dismissalType && b.intent !== 'defensive').length >= 2) {
-      this.spinWeakness = true;
-    }
-  }
-
-  getCounterStrategy() {
-    // Returns recommended field + bowling intent to counter user
-    if (this.aggressionScore > 6) {
-      return { field: 'attacking', bowlingIntent: 'aggressive', note: 'User is aggressive — go for wicket' };
-    }
-    if (this.spinWeakness) {
-      return { field: 'spintrap', bowlingIntent: 'attack', note: 'User weak vs spin — attack with spin' };
-    }
-    if (this.aggressionScore < 2) {
-      return { field: 'balanced', bowlingIntent: 'neutral', note: 'User is defensive — hold line' };
-    }
-    return { field: 'balanced', bowlingIntent: 'neutral', note: 'No clear pattern yet' };
-  }
-
-  reset() {
-    this.ballHistory     = [];
-    this.aggressionScore = 0;
-    this.spinWeakness    = false;
-    this.bounceWeakness  = false;
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// HELPER — getPhase for AI (mirrors match_engine.js version)
-// Kept local so ai_engine.js works standalone too
-// ─────────────────────────────────────────────────────────────
-function getPhaseAI(overNumber, format) {
-  const phases = {
-    ODI: { powerplay: [1,10], middle: [11,40], death: [41,50] },
-    T20: { powerplay: [1,6],  middle: [7,15],  death: [16,20] },
-    T10: { powerplay: [1,2],  middle: [3,7],   death: [8,10]  },
-    T5:  null,
-    BIZ: null
-  };
-  if (!phases[format]) return 'death'; // T5, BIZ = all death
-  const p = phases[format];
-  if (overNumber >= p.powerplay[0] && overNumber <= p.powerplay[1]) return 'powerplay';
-  if (overNumber >= p.middle[0]    && overNumber <= p.middle[1])    return 'middle';
+function _getPhase(oversDone, totalOvers) {
+  const pct = oversDone / totalOvers;
+  if (pct < 0.30) return 'powerplay';
+  if (pct < 0.75) return 'middle';
   return 'death';
 }
 
-// ─────────────────────────────────────────────────────────────
-// AI SEASON END PS BOOST
-// Applied after every season to AI team players
-// ─────────────────────────────────────────────────────────────
-function apply_season_ps_boost(players, difficulty, currentBoostTotal) {
-  const diff = (difficulty || 'medium').toLowerCase();
-
-  // Boost range per difficulty
-  const boostRange = {
-    easy:   { min: 0,   max: 0   },
-    medium: { min: 3,   max: 5   },
-    hard:   { min: 8,   max: 10  }
-  };
-
-  const MAX_CUMULATIVE_BOOST = 25; // hard cap
-
-  if (diff === 'easy') return players; // no boost on easy
-  if (currentBoostTotal >= MAX_CUMULATIVE_BOOST) return players; // cap reached
-
-  const range = boostRange[diff];
-  // Random boost in range (use Math.random for season-level, not ball-level)
-  const boostPercent = range.min + Math.random() * (range.max - range.min);
-  const actualBoost  = Math.min(boostPercent, MAX_CUMULATIVE_BOOST - currentBoostTotal);
-
-  return players.map(player => ({
-    ...player,
-    ps: Math.min(100, Math.round(player.ps * (1 + actualBoost / 100)))
-  }));
+function _rrRequired(target, runs, legalBalls, totalOvers) {
+  if (!target) return null;
+  const ballsLeft = (totalOvers * 6) - legalBalls;
+  if (ballsLeft <= 0) return Infinity;
+  return ((target - runs) / ballsLeft) * 6;
 }
 
-// ─────────────────────────────────────────────────────────────
-// AI CLUB MODE SCORING (Phase 7B)
-// Returns AI_SCORE for a team based on division + difficulty
-// ─────────────────────────────────────────────────────────────
-function get_ai_score(division, difficulty, season) {
-  // Base scores per division + difficulty
-  const baseScores = {
-    div5: { easy: 100, medium: 120, hard: 132 },
-    div4: { easy: 130, medium: 155, hard: 170 },
-    div3: { easy: 165, medium: 195, hard: 215 },
-    div2: { easy: 205, medium: 240, hard: 265 },
-    div1: { easy: 250, medium: 290, hard: 320 },
-    gt3:  { easy: 295, medium: 340, hard: 375 },
-    gt2:  { easy: 340, medium: 385, hard: 420 },
-    gt1:  { easy: 375, medium: 415, hard: 440 }
-  };
+function _currentRR(runs, legalBalls) {
+  if (legalBalls <= 0) return 0;
+  return (runs / legalBalls) * 6;
+}
 
-  const key  = (division || 'div5').toLowerCase().replace(' ', '');
-  const diff = (difficulty || 'medium').toLowerCase();
-  const base = baseScores[key]?.[diff] || 120;
+function _wicketsPressure(wickets) {
+  // Returns 0.0 (no pressure) → 1.0 (heavy pressure)
+  if (wickets <= 2)  return 0.0;
+  if (wickets <= 4)  return 0.2;
+  if (wickets <= 6)  return 0.45;
+  if (wickets <= 7)  return 0.65;
+  if (wickets <= 8)  return 0.80;
+  return 0.92;
+}
 
-  // Season scaling for hard: increases every 2 seasons up to cap
-  if (diff === 'hard' && season > 1) {
-    const seasonBonus = Math.min(season - 1, 5) * 3;
-    return base + seasonBonus;
+function _psScore(player) {
+  return _clamp(player?.ps ?? 50, 0, 100);
+}
+
+/* ============================================================
+   AI PATTERN TRACKER
+   Records ball outcomes per batter to expose tendencies
+   ============================================================ */
+
+export class AIPatternTracker {
+  constructor() {
+    this._history    = [];      // { battingIntent, outcome, runs, dismissalType }
+    this.aggressionScore  = 0; // +ve = batter goes hard; -ve = batter defends
+    this.spinWeakness     = 0; // higher = dismissals vs spin
+    this.bounceWeakness   = 0; // higher = dismissals vs pace short
   }
 
-  return base;
+  recordBall(battingIntent, outcome, runs, dismissalType = null) {
+    const entry = { battingIntent, outcome, runs, dismissalType };
+    this._history.push(entry);
+
+    // Rolling aggression score
+    if (['attack', 'aggressive'].includes(battingIntent)) {
+      this.aggressionScore = _clamp(this.aggressionScore + 1, -10, 10);
+    } else if (['defensive'].includes(battingIntent)) {
+      this.aggressionScore = _clamp(this.aggressionScore - 1, -10, 10);
+    }
+
+    // Weakness detection on wickets
+    if (dismissalType) {
+      if (['lbw', 'stumped', 'bowled'].includes(dismissalType)) {
+        this.spinWeakness = _clamp(this.spinWeakness + 2, 0, 10);
+      }
+      if (['caught', 'caught behind'].includes(dismissalType)) {
+        this.bounceWeakness = _clamp(this.bounceWeakness + 2, 0, 10);
+      }
+    }
+
+    // Decay over time
+    if (this._history.length % 6 === 0) {
+      this.aggressionScore  *= 0.9;
+      this.spinWeakness     *= 0.85;
+      this.bounceWeakness   *= 0.85;
+    }
+  }
+
+  get recentDotRate() {
+    const last12 = this._history.slice(-12);
+    if (!last12.length) return 0;
+    return last12.filter(b => b.runs === 0 && b.outcome !== 'wicket').length / last12.length;
+  }
+
+  get recentBoundaryRate() {
+    const last12 = this._history.slice(-12);
+    if (!last12.length) return 0;
+    return last12.filter(b => b.outcome === 'four' || b.outcome === 'six').length / last12.length;
+  }
+
+  get isHotStreak() {
+    const last6 = this._history.slice(-6);
+    return last6.filter(b => b.outcome === 'four' || b.outcome === 'six').length >= 3;
+  }
+
+  get isColdStreak() {
+    const last8 = this._history.slice(-8);
+    return last8.filter(b => b.runs === 0 && b.outcome !== 'wicket').length >= 5;
+  }
+
+  get likelyToAttack() {
+    return this.aggressionScore > 3 || this.isHotStreak;
+  }
+
+  get likelyToDefend() {
+    return this.aggressionScore < -3 || this.isColdStreak;
+  }
 }
 
-// ─────────────────────────────────────────────────────────────
-// EXPORTS
-// ─────────────────────────────────────────────────────────────
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    AI_PS_MULTIPLIER,
-    ai_pick_batting_intent,
-    ai_pick_bowling_intent,
-    ai_pick_field_setting,
-    ai_pick_bowler,
-    ai_promote_batter,
-    ai_decide_over,
-    AIPatternTracker,
-    apply_season_ps_boost,
-    get_ai_score
+/* ============================================================
+   1. AI BATTING INTENT
+   Called when AI controls the batting side
+   ============================================================ */
+
+export function aipickbattingintent(striker, bowler, ctx) {
+  const {
+    innings       = 1,
+    oversDone     = 0,
+    runs          = 0,
+    wickets       = 0,
+    target        = null,
+    totalOvers    = 20,
+    legalBalls    = 0,
+    difficulty    = 'medium',
+    patternTracker = null
+  } = ctx ?? {};
+
+  const phase      = _getPhase(oversDone, totalOvers);
+  const rrrVal     = _rrRequired(target, runs, legalBalls, totalOvers);
+  const crrVal     = _currentRR(runs, legalBalls);
+  const wPressure  = _wicketsPressure(wickets);
+  const batterPS   = _psScore(striker);
+  const bowlerPS   = _psScore(bowler);
+
+  // Base intent weights [defensive, neutral, aggressive, attack]
+  let w = [10, 30, 35, 25];
+
+  // ── Phase adjustments ──────────────────────────────────
+  if (phase === 'powerplay') {
+    w = [5, 20, 40, 35]; // Powerplay → push hard
+  } else if (phase === 'death') {
+    w = [3, 15, 35, 47]; // Death → maximum aggression
+  }
+
+  // ── Innings 2 run-rate pressure ────────────────────────
+  if (innings === 2 && rrrVal !== null) {
+    if (rrrVal > crrVal + 4) {
+      // Need big RR — go all out
+      w[0] = 1; w[1] = 8; w[2] = 30; w[3] = 61;
+    } else if (rrrVal > crrVal + 2) {
+      w[0] = 3; w[1] = 15; w[2] = 38; w[3] = 44;
+    } else if (rrrVal < crrVal - 3) {
+      // Way ahead — consolidate
+      w[0] = 15; w[1] = 40; w[2] = 30; w[3] = 15;
+    }
+  }
+
+  // ── Wicket pressure ────────────────────────────────────
+  w[0] += wPressure * 20;
+  w[1] += wPressure * 10;
+  w[2] -= wPressure * 15;
+  w[3] -= wPressure * 15;
+
+  // ── Batter PS ──────────────────────────────────────────
+  if (batterPS >= 80) {
+    w[2] += 10; w[3] += 15;
+  } else if (batterPS <= 30) {
+    w[0] += 15; w[1] += 10;
+  }
+
+  // ── Bowler PS retaliation ──────────────────────────────
+  if (bowlerPS >= 80) {
+    w[0] += 8; w[1] += 5; w[2] -= 5; w[3] -= 8;
+  } else if (bowlerPS <= 30) {
+    w[2] += 8; w[3] += 12;
+  }
+
+  // ── Pattern tracker adjustments ───────────────────────
+  if (patternTracker) {
+    if (patternTracker.isHotStreak) {
+      w[2] += 12; w[3] += 18; w[0] -= 5; w[1] -= 5;
+    }
+    if (patternTracker.isColdStreak) {
+      w[0] += 15; w[1] += 10; w[2] -= 10; w[3] -= 15;
+    }
+    if (patternTracker.recentDotRate > 0.6) {
+      // Too many dots — force aggression
+      w[2] += 10; w[3] += 10;
+    }
+    if (patternTracker.recentBoundaryRate > 0.4) {
+      // On fire — keep attacking
+      w[3] += 15;
+    }
+  }
+
+  // ── Difficulty modifier ────────────────────────────────
+  const diffAdj = {
+    easy:   [ +5,  +5,  0,   -10 ],
+    medium: [  0,   0,  0,     0 ],
+    hard:   [ -3,  -3,  +3,   +3 ],
+    expert: [ -5,  -5,  +5,   +5 ]
+  };
+  const adj = diffAdj[difficulty] ?? [0, 0, 0, 0];
+  w = w.map((v, i) => Math.max(1, v + adj[i]));
+
+  return _weightedPick(INTENTS.batting, w);
+}
+
+/* ============================================================
+   2. AI BOWLING INTENT
+   Called when AI controls the bowling side (user is batting)
+   ============================================================ */
+
+export function aipickbowlingintent(bowler, striker, ctx) {
+  const {
+    innings       = 1,
+    oversDone     = 0,
+    wickets       = 0,
+    runs          = 0,
+    target        = null,
+    totalOvers    = 20,
+    legalBalls    = 0,
+    difficulty    = 'medium',
+    patternTracker = null
+  } = ctx ?? {};
+
+  const phase    = _getPhase(oversDone, totalOvers);
+  const rrrVal   = _rrRequired(target, runs, legalBalls, totalOvers);
+  const crrVal   = _currentRR(runs, legalBalls);
+  const bowlerPS = _psScore(bowler);
+  const batterPS = _psScore(striker);
+
+  // Base weights [defensive, neutral, aggressive, attack]
+  let w = [15, 35, 30, 20];
+
+  // ── Phase ──────────────────────────────────────────────
+  if (phase === 'powerplay') {
+    w = [10, 25, 35, 30]; // Powerplay — attack early
+  } else if (phase === 'death') {
+    w = [5, 20, 35, 40];  // Death — full attack
+  }
+
+  // ── Innings 2 bowling tactics ──────────────────────────
+  if (innings === 2 && rrrVal !== null) {
+    if (rrrVal < crrVal - 3) {
+      // Batting team well ahead — defensive bowl to maintain pressure
+      w[0] += 20; w[1] += 10; w[2] -= 15; w[3] -= 15;
+    } else if (rrrVal > crrVal + 3) {
+      // Batting struggling — keep attacking
+      w[0] -= 5; w[2] += 10; w[3] += 15;
+    }
+  }
+
+  // ── Bowler PS ──────────────────────────────────────────
+  if (bowlerPS >= 80) {
+    w[2] += 10; w[3] += 15; // High PS bowler — confident, attack
+  } else if (bowlerPS <= 30) {
+    w[0] += 15; w[1] += 10; // Low PS bowler — survive, don't get hit
+  }
+
+  // ── Batter PS counter ──────────────────────────────────
+  if (batterPS >= 80) {
+    w[0] += 10; w[1] += 5; w[2] -= 5; w[3] -= 10;
+  } else if (batterPS <= 30) {
+    w[2] += 10; w[3] += 15;
+  }
+
+  // ── Pattern tracker exploitation ──────────────────────
+  if (patternTracker) {
+    if (patternTracker.spinWeakness > 4 && bowler?.bowlingType === 'spin') {
+      // Exploit spin weakness
+      w[2] += 15; w[3] += 20;
+    }
+    if (patternTracker.bounceWeakness > 4 && bowler?.bowlingType === 'pace') {
+      w[2] += 12; w[3] += 18;
+    }
+    if (patternTracker.isHotStreak) {
+      // Batter is on fire — switch to defence
+      w[0] += 20; w[1] += 10; w[2] -= 15; w[3] -= 15;
+    }
+    if (patternTracker.isColdStreak) {
+      // Batter struggling — keep attacking
+      w[2] += 10; w[3] += 15;
+    }
+    if (patternTracker.likelyToAttack) {
+      // Batter likely to swing — set defensive trap
+      w[0] += 12; w[1] += 8;
+    }
+  }
+
+  // ── Wickets taken pressure — more wickets = more attacking ─
+  w[2] += wickets * 2;
+  w[3] += wickets * 1;
+
+  // ── Difficulty modifier ────────────────────────────────
+  const diffAdj = {
+    easy:   [ +5,  +5,  -5,  -5  ],
+    medium: [  0,   0,   0,   0  ],
+    hard:   [ -3,   0,  +3,  +3  ],
+    expert: [ -8,  -5,  +5,  +8  ]
+  };
+  const adj = diffAdj[difficulty] ?? [0, 0, 0, 0];
+  w = w.map((v, i) => Math.max(1, v + adj[i]));
+
+  return _weightedPick(INTENTS.bowling, w);
+}
+
+/* ============================================================
+   3. AI FIELD SETTING
+   Called when AI controls the bowling side
+   ============================================================ */
+
+export function aipickfieldsetting(ctx) {
+  const {
+    innings       = 1,
+    oversDone     = 0,
+    wickets       = 0,
+    runs          = 0,
+    target        = null,
+    totalOvers    = 20,
+    legalBalls    = 0,
+    difficulty    = 'medium',
+    patternTracker = null
+  } = ctx ?? {};
+
+  const phase  = _getPhase(oversDone, totalOvers);
+  const rrrVal = _rrRequired(target, runs, legalBalls, totalOvers);
+  const crrVal = _currentRR(runs, legalBalls);
+
+  // Weights: [attacking, balanced, defensive, seam, spin, powerplay]
+  let w = [15, 40, 15, 15, 10, 5];
+
+  // ── Phase ──────────────────────────────────────────────
+  if (phase === 'powerplay') {
+    w = [5, 20, 10, 20, 10, 35]; // Powerplay field in powerplay overs
+  } else if (phase === 'middle') {
+    w = [15, 35, 20, 15, 15, 0]; // Spin/seam mix in middle
+  } else if (phase === 'death') {
+    w = [40, 30, 10, 10, 10, 0]; // Attacking field at death
+  }
+
+  // ── Run rate ───────────────────────────────────────────
+  if (innings === 2 && rrrVal !== null) {
+    if (rrrVal < crrVal - 3) {
+      // Batting well ahead — defensive
+      w[2] += 20; w[0] -= 10;
+    } else if (rrrVal > crrVal + 3) {
+      // Batting behind — attacking to take wickets
+      w[0] += 20; w[2] -= 10;
+    }
+  }
+
+  // ── Many wickets fallen — can attack more ──────────────
+  if (wickets >= 6) {
+    w[0] += 20; w[1] -= 5; w[2] -= 15;
+  } else if (wickets >= 4) {
+    w[0] += 10;
+  }
+
+  // ── Pattern tracker ────────────────────────────────────
+  if (patternTracker) {
+    if (patternTracker.spinWeakness > 4) {
+      w[4] += 20; // Spin field to exploit weakness
+    }
+    if (patternTracker.bounceWeakness > 4) {
+      w[3] += 20; // Seam/pace field
+    }
+    if (patternTracker.isHotStreak) {
+      w[2] += 15; w[0] -= 10; // Defensive to slow hot batter
+    }
+  }
+
+  // ── Difficulty modifier ────────────────────────────────
+  const diffAdj = {
+    easy:   [  -5,  0,  +10,  0,   0,   0 ],
+    medium: [   0,  0,    0,  0,   0,   0 ],
+    hard:   [  +5,  0,   -5,  +5,  0,   0 ],
+    expert: [ +10,  0,  -10,  +5,  +5,  0 ]
+  };
+  const adj = diffAdj[difficulty] ?? Array(6).fill(0);
+  w = w.map((v, i) => Math.max(1, v + adj[i]));
+
+  return _weightedPick(INTENTS.field, w);
+}
+
+/* ============================================================
+   4. AI DECIDE OVER
+   Called at end of each over when AI is bowling.
+   Returns { bowlerId, bowlingIntent, fieldSetting }
+   ============================================================ */
+
+export function aidecideover(ctx) {
+  const {
+    bowlingXI      = [],
+    bowlerStats    = {},
+    bowlerOverCount = {},
+    lastBowlerId   = null,
+    striker        = null,
+    innings        = 1,
+    oversDone      = 0,
+    wickets        = 0,
+    runs           = 0,
+    target         = null,
+    totalOvers     = 20,
+    legalBalls     = 0,
+    difficulty     = 'medium',
+    patternTracker = null
+  } = ctx ?? {};
+
+  const phase    = _getPhase(oversDone, totalOvers);
+  const maxQ     = Math.floor(totalOvers / 5);
+  const aiCtx    = { innings, oversDone, wickets, runs, target,
+                     totalOvers, legalBalls, difficulty, patternTracker };
+
+  // ── 1. Pick bowler ─────────────────────────────────────
+
+  // Score each eligible bowler
+  const candidates = bowlingXI
+    .filter(p => {
+      const oc = bowlerOverCount[p.id] ?? 0;
+      return oc < maxQ && p.id !== lastBowlerId;
+    })
+    .map(p => {
+      const oc   = bowlerOverCount[p.id] ?? 0;
+      const bs   = bowlerStats[p.id]     ?? {};
+      const ps   = _psScore(p);
+      const wkts = bs.wickets ?? 0;
+      const runs = bs.runs    ?? 1;
+      const ec   = (oc > 0) ? (runs / (oc * 6)) * 6 : 6; // economy
+
+      let score = ps;
+
+      // Phase preferences
+      if (phase === 'powerplay') {
+        if (['pace', 'medium'].includes(p.bowlingType)) score += 15;
+      } else if (phase === 'middle') {
+        if (p.bowlingType === 'spin') score += 12;
+      } else if (phase === 'death') {
+        if (['pace', 'medium'].includes(p.bowlingType)) score += 18;
+      }
+
+      // Reward wicket-takers
+      score += wkts * 8;
+
+      // Penalise expensive bowlers (EC > 10)
+      if (ec > 10) score -= 15;
+      if (ec > 8)  score -= 8;
+      if (ec < 5)  score += 10;
+
+      // Spinner vs pattern tracker
+      if (patternTracker?.spinWeakness > 4 && p.bowlingType === 'spin')  score += 20;
+      if (patternTracker?.bounceWeakness > 4 && p.bowlingType === 'pace') score += 20;
+
+      // Prefer overs not yet used (keep bowlers fresh for death)
+      if (phase !== 'death' && oc === 0) score += 5;
+
+      // Clamp score to minimum 1
+      return { player: p, score: Math.max(1, score) };
+    });
+
+  let chosenBowler = null;
+
+  if (candidates.length > 0) {
+    // Weighted pick by score
+    const options = candidates.map(c => c.player);
+    const weights = candidates.map(c => c.score);
+    chosenBowler  = _weightedPick(options, weights);
+  } else {
+    // Fallback: anyone with quota remaining
+    const fallback = bowlingXI.find(p => (bowlerOverCount[p.id] ?? 0) < maxQ);
+    chosenBowler   = fallback ?? bowlingXI[0];
+  }
+
+  // ── 2. Decide bowling intent for this over ─────────────
+  const bowlingIntent = aipickbowlingintent(chosenBowler, striker, aiCtx);
+
+  // ── 3. Decide field setting for this over ─────────────
+  const fieldSetting  = aipickfieldsetting(aiCtx);
+
+  return {
+    bowlerId:      chosenBowler?.id    ?? null,
+    bowlerName:    chosenBowler?.name  ?? null,
+    bowlingIntent,
+    fieldSetting
   };
 }
 
+/* ============================================================
+   5. AI PROMOTE BATTER
+   Called on wicket — decides if AI should send in a pinch-hitter
+   Returns the promoted player object or null (no change)
+   ============================================================ */
+
+export function aipromotebatter(ctx) {
+  const {
+    nextBatterIdx  = 0,
+    batOrder       = [],
+    innings        = 1,
+    oversDone      = 0,
+    wickets        = 0,
+    runs           = 0,
+    target         = null,
+    totalOvers     = 20,
+    legalBalls     = 0,
+    difficulty     = 'medium'
+  } = ctx ?? {};
+
+  const phase  = _getPhase(oversDone, totalOvers);
+  const rrrVal = _rrRequired(target, runs, legalBalls, totalOvers);
+  const crrVal = _currentRR(runs, legalBalls);
+
+  // Remaining batters
+  const remaining = batOrder.slice(nextBatterIdx);
+  if (remaining.length === 0) return null;
+
+  // Promote only in specific situations
+  const shouldPromote = (() => {
+    // Death overs — send in big hitter
+    if (phase === 'death') return true;
+
+    // Innings 2 and badly behind on RRR
+    if (innings === 2 && rrrVal !== null && rrrVal > crrVal + 4) return true;
+
+    // Wicket in powerplay — don't disrupt, keep natural order
+    if (phase === 'powerplay') return false;
+
+    // Middle overs, not desperate
+    return false;
+  })();
+
+  if (!shouldPromote) return null;
+
+  // Find the highest PS remaining batter who can hit
+  const attackers = remaining
+    .filter(p => {
+      const role = (p.roleSubtype ?? p.role ?? '').toLowerCase();
+      return !['bowler', 'spinner', 'pacer'].includes(role);
+    })
+    .sort((a, b) => _psScore(b) - _psScore(a));
+
+  if (!attackers.length) return null;
+
+  const best = attackers[0];
+
+  // Don't promote if they're already next
+  if (best.id === remaining[0]?.id) return null;
+
+  // Difficulty guard — easy AI doesn't promote wisely
+  if (difficulty === 'easy' && Math.random() > 0.3) return null;
+  if (difficulty === 'medium' && Math.random() > 0.6) return null;
+
+  return best;
+}
+
+/* ============================================================
+   6. AI PICK NEXT BOWLER (lightweight, no over planning)
+   Used when user controls bowling side and autoPick is off
+   but AI needs a bowler for a quick decision
+   ============================================================ */
+
+export function aipicknextbowler(ctx) {
+  const {
+    bowlingXI      = [],
+    bowlerOverCount = {},
+    lastBowlerId   = null,
+    totalOvers     = 20,
+    oversDone      = 0
+  } = ctx ?? {};
+
+  const maxQ  = Math.floor(totalOvers / 5);
+  const phase = _getPhase(oversDone, totalOvers);
+
+  // Eligible bowlers
+  const eligible = bowlingXI.filter(p =>
+    (bowlerOverCount[p.id] ?? 0) < maxQ && p.id !== lastBowlerId
+  );
+
+  if (!eligible.length) {
+    // Fallback — anyone with quota
+    return bowlingXI.find(p => (bowlerOverCount[p.id] ?? 0) < maxQ) ?? bowlingXI[0];
+  }
+
+  // Score and pick
+  const scored = eligible.map(p => {
+    let score = _psScore(p);
+    if (phase === 'powerplay' && ['pace', 'medium'].includes(p.bowlingType)) score += 10;
+    if (phase === 'middle'   && p.bowlingType === 'spin')                    score += 10;
+    if (phase === 'death'    && ['pace', 'medium'].includes(p.bowlingType))  score += 15;
+    return { player: p, score: Math.max(1, score) };
+  });
+
+  return _weightedPick(
+    scored.map(s => s.player),
+    scored.map(s => s.score)
+  );
+}
+
+/* ============================================================
+   7. AI DIFFICULTY PROFILE
+   Returns a descriptor object for the current difficulty
+   Used by match-core to calibrate various factors
+   ============================================================ */
+
+export function getDifficultyProfile(difficulty) {
+  const profiles = {
+    easy: {
+      label:              'Easy',
+      description:        'Forgiving AI — makes frequent mistakes',
+      aiDecisionAccuracy: 0.40,  // 0–1 how often AI picks optimal intent
+      reviewAccuracy:     0.30,
+      promotionChance:    0.20,
+      aggressionBias:     -0.2,  // negative = AI plays safer
+      wicketBias:         -0.3
+    },
+    medium: {
+      label:              'Medium',
+      description:        'Balanced AI — plays sensible cricket',
+      aiDecisionAccuracy: 0.65,
+      reviewAccuracy:     0.55,
+      promotionChance:    0.50,
+      aggressionBias:     0.0,
+      wicketBias:         0.0
+    },
+    hard: {
+      label:              'Hard',
+      description:        'Smart AI — exploits weaknesses',
+      aiDecisionAccuracy: 0.80,
+      reviewAccuracy:     0.72,
+      promotionChance:    0.70,
+      aggressionBias:     +0.2,
+      wicketBias:         +0.2
+    },
+    expert: {
+      label:              'Expert',
+      description:        'Elite AI — near-optimal every ball',
+      aiDecisionAccuracy: 0.95,
+      reviewAccuracy:     0.88,
+      promotionChance:    0.90,
+      aggressionBias:     +0.35,
+      wicketBias:         +0.35
+    }
+  };
+
+  return profiles[difficulty] ?? profiles.medium;
+}
+
+/* ============================================================
+   8. AI SHOULD REVIEW (DRS decision helper)
+   Returns true if AI should take a DRS review
+   ============================================================ */
+
+export function aishouldreview(result, ctx) {
+  const {
+    drsReviews  = 0,
+    difficulty  = 'medium',
+    wickets     = 0,
+    oversDone   = 0,
+    totalOvers  = 20,
+    innings     = 1,
+    target      = null,
+    runs        = 0,
+    legalBalls  = 0
+  } = ctx ?? {};
+
+  if (drsReviews <= 0)         return false;
+  if (!result?.isWicket)       return false;
+
+  const phase    = _getPhase(oversDone, totalOvers);
+  const profile  = getDifficultyProfile(difficulty);
+  const rrrVal   = _rrRequired(target, runs, legalBalls, totalOvers);
+  const crrVal   = _currentRR(runs, legalBalls);
+
+  let reviewProb = 0.0;
+
+  // Only review 'borderline' dismissal types
+  const borderline = ['lbw', 'caught behind', 'caught', 'stumped'];
+  if (!borderline.includes(result.dismissalType)) return false;
+
+  // Base probability from difficulty
+  reviewProb = profile.reviewAccuracy;
+
+  // Situation modifiers
+  if (phase === 'death')       reviewProb += 0.15; // high stakes
+  if (wickets >= 7)            reviewProb += 0.20; // last wickets — worth it
+  if (innings === 2) {
+    if (rrrVal !== null && rrrVal < crrVal - 2) reviewProb -= 0.20; // winning — protect review
+    if (rrrVal !== null && rrrVal > crrVal + 3) reviewProb += 0.20; // losing — must fight
+  }
+  if (drsReviews === 1)        reviewProb -= 0.15; // last review — be conservative
+
+  reviewProb = _clamp(reviewProb, 0.0, 1.0);
+
+  return Math.random() < reviewProb;
+}

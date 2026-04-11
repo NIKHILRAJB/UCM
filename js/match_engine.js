@@ -1,851 +1,581 @@
-// ============================================================
-// match_engine.js — UCM Core Ball-by-Ball Match Engine
-// Handles: SeededRNG, resolve_ball(), simulate_innings(),
-//          simulate_match(), format configs, DRS logic,
-//          post-match stats writer
-// ============================================================
+/* ============================================================
+   UCM — MATCH-ENGINE.JS
+   Ball resolution engine — probability tables, outcome resolver,
+   commentary generator, DRS review logic
+   Pure functions only — no DOM, no state mutation
+   ============================================================ */
 
-'use strict';
+/* ============================================================
+   OUTCOME REGISTRY
+   ============================================================ */
 
-// ─────────────────────────────────────────────────────────────
-// 2A — SEEDED RNG (xorshift32)
-// ─────────────────────────────────────────────────────────────
-class SeededRNG {
-  constructor(seed) {
-    this.state = seed >>> 0 || 1; // ensure uint32, never 0
-    this.initialSeed = this.state;
-  }
+const OUTCOMES = [
+  'dot', 'single', 'double', 'triple',
+  'four', 'six',
+  'wide', 'noball',
+  'wicket'
+];
 
-  // Returns float in [0, 1)
-  next() {
-    let s = this.state;
-    s ^= s << 13;
-    s ^= s >> 17;
-    s ^= s << 5;
-    this.state = s >>> 0;
-    return (this.state >>> 0) / 4294967296;
-  }
+/* ============================================================
+   BASE PROBABILITY TABLE
+   Weights per outcome — normalised inside resolveBall
+   Order: dot, single, double, triple, four, six, wide, noball, wicket
+   ============================================================ */
 
-  // Returns int in [min, max] inclusive
-  nextInt(min, max) {
-    return Math.floor(this.next() * (max - min + 1)) + min;
-  }
+const BASE_WEIGHTS = {
+  //              dot   1    2    3    4    6    Wd   NB   W
+  powerplay:   [ 22,   28,  10,  2,   16,  9,   6,   3,   4 ],
+  middle:      [ 28,   30,  10,  2,   14,  7,   4,   2,   3 ],
+  death:       [ 18,   22,  8,   1,   18,  14,  6,   3,   10 ]
+};
 
-  reset() {
-    this.state = this.initialSeed;
-  }
+/* ============================================================
+   INTENT MULTIPLIER TABLES
+   Each row = [dot, 1, 2, 3, 4, 6, Wd, NB, W]
+   ============================================================ */
+
+const BATTING_INTENT_MUL = {
+  defensive:  [ 1.5,  0.9,  0.7,  0.5,  0.5,  0.2,  0.8,  0.8,  0.6 ],
+  neutral:    [ 1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0 ],
+  aggressive: [ 0.8,  1.1,  1.2,  1.2,  1.4,  1.5,  1.0,  1.0,  1.2 ],
+  attack:     [ 0.5,  0.9,  1.0,  1.1,  1.7,  2.2,  1.1,  1.1,  1.6 ]
+};
+
+const BOWLING_INTENT_MUL = {
+  defensive:  [ 1.4,  1.1,  0.9,  0.8,  0.7,  0.5,  0.6,  0.5,  1.3 ],
+  neutral:    [ 1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0 ],
+  aggressive: [ 0.9,  1.0,  1.1,  1.1,  1.2,  1.2,  1.3,  1.2,  0.8 ],
+  attack:     [ 0.7,  0.9,  1.1,  1.2,  1.4,  1.5,  1.5,  1.4,  0.6 ]
+};
+
+/* ============================================================
+   FIELD SETTING MULTIPLIERS
+   Attacking field = more wickets, more boundaries conceded
+   Defensive field = fewer boundaries, more dot balls
+   ============================================================ */
+
+const FIELD_MUL = {
+  attacking:  [ 0.8,  1.0,  1.1,  1.1,  1.3,  1.3,  1.0,  1.0,  1.5 ],
+  balanced:   [ 1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0 ],
+  defensive:  [ 1.3,  1.1,  1.0,  0.9,  0.7,  0.5,  1.0,  1.0,  0.7 ],
+  seam:       [ 1.1,  1.0,  0.9,  0.9,  0.9,  0.8,  1.1,  1.2,  1.3 ],
+  spin:       [ 1.2,  1.1,  1.0,  0.9,  0.8,  0.7,  0.9,  0.8,  1.2 ],
+  powerplay:  [ 0.9,  1.1,  1.1,  1.0,  1.2,  1.1,  1.1,  1.1,  0.9 ]
+};
+
+/* ============================================================
+   PS (PLAYER STRENGTH) MODIFIER
+   PS 0–100. Batter PS raises boundary/scoring, lowers wicket
+   Bowler PS raises wicket/dot, lowers scoring
+   ============================================================ */
+
+function _psModifier(batterPS, bowlerPS) {
+  // Returns [dot, 1, 2, 3, 4, 6, Wd, NB, W]
+  const bOff = (batterPS - 50) / 100;   // -0.5 … +0.5
+  const bwOff = (bowlerPS  - 50) / 100; // -0.5 … +0.5
+
+  return [
+    1.0 - bOff * 0.3  + bwOff * 0.3,   // dot
+    1.0,                                 // single — neutral
+    1.0 + bOff * 0.2  - bwOff * 0.1,   // double
+    1.0 + bOff * 0.1,                   // triple
+    1.0 + bOff * 0.4  - bwOff * 0.3,   // four
+    1.0 + bOff * 0.5  - bwOff * 0.4,   // six
+    1.0               + bwOff * 0.2,    // wide
+    1.0               + bwOff * 0.15,   // noball
+    1.0 - bOff * 0.4  + bwOff * 0.5    // wicket
+  ];
 }
 
-// ─────────────────────────────────────────────────────────────
-// 2D — FORMAT CONFIGURATIONS
-// ─────────────────────────────────────────────────────────────
-const FORMAT_CONFIG = {
-  ODI: {
-    overs: 50,
-    maxPerBowler: 10,
-    drsReviews: 2,
-    freeHit: true,
-    phases: { powerplay: [1, 10], middle: [11, 40], death: [41, 50] },
-    allDeath: false
+/* ============================================================
+   FORM MODIFIER
+   excellent: +ve for batter, -ve for bowler (more runs)
+   poor:      -ve for batter, +ve for bowler (more wickets)
+   ============================================================ */
+
+const FORM_BATTER_MUL = {
+  excellent: [ 0.85, 1.0,  1.1,  1.1,  1.3,  1.4,  1.0,  1.0,  0.7  ],
+  good:      [ 0.93, 1.0,  1.05, 1.05, 1.1,  1.1,  1.0,  1.0,  0.85 ],
+  average:   [ 1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0  ],
+  poor:      [ 1.1,  0.95, 0.9,  0.85, 0.8,  0.7,  1.0,  1.0,  1.3  ]
+};
+
+const FORM_BOWLER_MUL = {
+  excellent: [ 1.2,  1.0,  0.9,  0.85, 0.75, 0.6,  0.8,  0.8,  1.4  ],
+  good:      [ 1.1,  1.0,  0.95, 0.9,  0.9,  0.85, 0.9,  0.9,  1.15 ],
+  average:   [ 1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0  ],
+  poor:      [ 0.85, 1.0,  1.1,  1.1,  1.2,  1.3,  1.2,  1.2,  0.7  ]
+};
+
+/* ============================================================
+   FATIGUE MODIFIER
+   High fatigue (>60) degrades performance
+   ============================================================ */
+
+function _fatigueMod(batterFatigue, bowlerFatigue) {
+  const bf  = Math.max(0, (batterFatigue  - 40) / 100);
+  const bwf = Math.max(0, (bowlerFatigue  - 40) / 100);
+  return [
+    1.0 + bf  * 0.2,   // dot
+    1.0,               // single
+    1.0 - bf  * 0.1,   // double
+    1.0 - bf  * 0.1,   // triple
+    1.0 - bf  * 0.2,   // four
+    1.0 - bf  * 0.3,   // six
+    1.0 + bwf * 0.25,  // wide
+    1.0 + bwf * 0.2,   // noball
+    1.0 - bf  * 0.2 + bwf * 0.2  // wicket
+  ];
+}
+
+/* ============================================================
+   VENUE MODIFIER
+   ============================================================ */
+
+const VENUE_MUL = {
+  batting:  [ 0.9,  1.0,  1.1,  1.1,  1.2,  1.2,  1.0,  1.0,  0.8  ],
+  bowling:  [ 1.2,  1.0,  0.9,  0.9,  0.8,  0.7,  1.0,  1.0,  1.3  ],
+  neutral:  [ 1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0  ]
+};
+
+/* ============================================================
+   DIFFICULTY MODIFIER (affects wicket + boundary rates)
+   ============================================================ */
+
+const DIFFICULTY_MUL = {
+  easy:   [ 0.8,  1.0,  1.1,  1.1,  1.2,  1.2,  0.9,  0.9,  0.7  ],
+  medium: [ 1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0  ],
+  hard:   [ 1.2,  1.0,  0.9,  0.9,  0.85, 0.8,  1.1,  1.0,  1.3  ],
+  expert: [ 1.4,  1.0,  0.85, 0.85, 0.75, 0.65, 1.2,  1.1,  1.6  ]
+};
+
+/* ============================================================
+   FREE HIT MODIFIER — no wicket on legal delivery
+   ============================================================ */
+
+const FREEHIT_MUL = [ 1.0, 1.05, 1.1, 1.05, 1.1, 1.15, 1.0, 1.0, 0.0 ];
+
+/* ============================================================
+   BOWLER TYPE vs BATTER ROLE MATCHUP MODIFIER
+   ============================================================ */
+
+function _matchupMod(bowlerType, batterRole) {
+  // [dot, 1, 2, 3, 4, 6, Wd, NB, W]
+  const matchups = {
+    pace: {
+      batsman:     [ 1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0 ],
+      'top-order': [ 0.9,  1.0,  1.0,  1.0,  1.1,  1.1,  1.0,  1.0,  0.9 ],
+      'lower-order':[ 1.2, 0.9,  0.9,  0.9,  0.8,  0.7,  1.0,  1.1,  1.4 ],
+      allrounder:  [ 1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0 ],
+      wicketkeeper:[ 1.1,  1.0,  0.9,  0.9,  0.9,  0.8,  1.0,  1.0,  1.1 ]
+    },
+    spin: {
+      batsman:     [ 0.9,  1.0,  1.0,  1.0,  1.1,  1.1,  0.9,  0.9,  0.9 ],
+      'top-order': [ 0.85, 1.0,  1.1,  1.0,  1.1,  1.15, 0.9,  0.9,  0.85],
+      'lower-order':[ 1.3, 0.9,  0.8,  0.8,  0.7,  0.6,  0.9,  0.9,  1.5 ],
+      allrounder:  [ 1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0 ],
+      wicketkeeper:[ 1.0,  1.0,  1.0,  1.0,  1.0,  0.9,  0.9,  0.9,  1.05]
+    },
+    medium: {
+      batsman:     [ 1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.1,  1.0,  1.0 ],
+      'top-order': [ 0.95, 1.0,  1.0,  1.0,  1.05, 1.0,  1.1,  1.0,  0.95],
+      'lower-order':[ 1.1, 1.0,  0.95, 0.9,  0.85, 0.75, 1.1,  1.0,  1.2 ],
+      allrounder:  [ 1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0 ],
+      wicketkeeper:[ 1.05, 1.0,  0.95, 0.95, 0.95, 0.9,  1.0,  1.0,  1.05]
+    }
+  };
+
+  const bType = (bowlerType ?? 'pace').toLowerCase();
+  const bRole = (batterRole  ?? 'batsman').toLowerCase();
+
+  return (matchups[bType]?.[bRole]) ?? Array(9).fill(1.0);
+}
+
+/* ============================================================
+   COMBINE WEIGHTS — multiply element-wise across all modifier arrays
+   ============================================================ */
+
+function _combine(base, ...modifiers) {
+  return base.map((w, i) =>
+    modifiers.reduce((acc, mod) => acc * (mod[i] ?? 1.0), w)
+  );
+}
+
+/* ============================================================
+   WEIGHTED RANDOM PICK
+   ============================================================ */
+
+function _pick(weights, rng) {
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = rng.next() * total;
+  for (let i = 0; i < weights.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return i;
+  }
+  return weights.length - 1;
+}
+
+/* ============================================================
+   DISMISSAL TYPE TABLE
+   Bowler type + intent influence dismissal type
+   ============================================================ */
+
+const DISMISSAL_TYPES = {
+  pace: {
+    defensive:  ['bowled', 'lbw', 'caught behind', 'caught', 'caught behind'],
+    neutral:    ['caught', 'bowled', 'lbw', 'caught behind', 'caught'],
+    aggressive: ['caught', 'caught', 'bowled', 'lbw', 'run out'],
+    attack:     ['caught', 'caught', 'caught', 'bowled', 'lbw']
   },
-  T20: {
-    overs: 20,
-    maxPerBowler: 4,
-    drsReviews: 2,
-    freeHit: true,
-    phases: { powerplay: [1, 6], middle: [7, 15], death: [16, 20] },
-    allDeath: false
+  spin: {
+    defensive:  ['lbw', 'bowled', 'stumped', 'caught', 'lbw'],
+    neutral:    ['stumped', 'lbw', 'caught', 'bowled', 'caught'],
+    aggressive: ['caught', 'stumped', 'lbw', 'caught', 'run out'],
+    attack:     ['caught', 'caught', 'stumped', 'lbw', 'caught']
   },
-  T10: {
-    overs: 10,
-    maxPerBowler: 2,
-    drsReviews: 1,
-    freeHit: true,
-    phases: { powerplay: [1, 2], middle: [3, 7], death: [8, 10] },
-    allDeath: false
-  },
-  T5: {
-    overs: 5,
-    maxPerBowler: 2,
-    drsReviews: 1,
-    freeHit: true,
-    phases: null,
-    allDeath: true
-  },
-  BIZ: {
-    overs: 2,
-    maxPerBowler: 1,
-    drsReviews: 1,
-    freeHit: true,
-    phases: null,
-    allDeath: true
+  medium: {
+    defensive:  ['bowled', 'lbw', 'caught', 'caught behind', 'bowled'],
+    neutral:    ['caught', 'bowled', 'lbw', 'caught behind', 'caught'],
+    aggressive: ['caught', 'caught', 'run out', 'bowled', 'lbw'],
+    attack:     ['caught', 'caught', 'caught', 'run out', 'bowled']
   }
 };
 
-// ─────────────────────────────────────────────────────────────
-// HELPER — Get Phase from over number + format
-// ─────────────────────────────────────────────────────────────
-function getPhase(overNumber, format) {
-  const cfg = FORMAT_CONFIG[format];
-  if (!cfg) return 'death';
-  if (cfg.allDeath) return 'death';
-  const p = cfg.phases;
-  if (overNumber >= p.powerplay[0] && overNumber <= p.powerplay[1]) return 'powerplay';
-  if (overNumber >= p.middle[0]    && overNumber <= p.middle[1])    return 'middle';
-  return 'death';
+function _pickDismissalType(bowlerType, bowlingIntent, rng) {
+  const bType = (bowlerType   ?? 'pace').toLowerCase();
+  const bInt  = (bowlingIntent ?? 'neutral').toLowerCase();
+  const list  = DISMISSAL_TYPES[bType]?.[bInt]
+             ?? DISMISSAL_TYPES.pace.neutral;
+  const idx   = Math.floor(rng.next() * list.length);
+  return list[idx];
 }
 
-// ─────────────────────────────────────────────────────────────
-// HELPER — Effective PS calculation
-// ─────────────────────────────────────────────────────────────
-function getEffectivePS(player, isAI, difficulty) {
-  // Form multiplier
-  const formMap = { low: 0.88, medium: 1.00, high: 1.08, consistent: 1.05 };
-  const formMult = formMap[(player.form || 'medium').toLowerCase()] || 1.00;
-
-  // Fatigue multiplier
-  const fatigueMap = { fresh: 1.00, average: 0.95, low: 0.88 };
-  const fatigueMult = fatigueMap[(player.fatigue || 'fresh').toLowerCase()] || 1.00;
-
-  // Difficulty multiplier (only for AI players)
-  const diffMap = { easy: 0.85, medium: 1.00, hard: 1.15 };
-  const diffMult = isAI ? (diffMap[(difficulty || 'medium').toLowerCase()] || 1.00) : 1.00;
-
-  return Math.min(100, player.ps * formMult * fatigueMult * diffMult);
+function _buildDismissalText(type, bowlerName, fielderName) {
+  const b = bowlerName  ?? 'bowler';
+  const f = fielderName ?? 'fielder';
+  switch (type) {
+    case 'bowled':         return `b ${b}`;
+    case 'lbw':            return `lbw b ${b}`;
+    case 'caught':         return `c ${f} b ${b}`;
+    case 'caught behind':  return `c †keeper b ${b}`;
+    case 'stumped':        return `st †keeper b ${b}`;
+    case 'run out':        return `run out (${f})`;
+    default:               return `out b ${b}`;
+  }
 }
 
-// ─────────────────────────────────────────────────────────────
-// 2B — RESOLVE_BALL() — Core ball outcome function
-// ─────────────────────────────────────────────────────────────
-function resolve_ball(params) {
+/* ============================================================
+   COMMENTARY TEMPLATES
+   ============================================================ */
+
+const COMMENTARY = {
+  dot: [
+    "Played out. Dot ball.",
+    "Tight line, defended back.",
+    "Probing delivery, no run.",
+    "Good length, left alone.",
+    "Beaten outside off! Dot.",
+    "Misses the drive — no run.",
+    "Excellent delivery, dot ball."
+  ],
+  single: [
+    "Nudged away for a single.",
+    "Worked to mid-on, one run.",
+    "Clipped off the pads, single.",
+    "Pushed into the gap, they run.",
+    "Quick single — good running.",
+    "Flicked fine, a single taken.",
+    "Tapped down the ground, one."
+  ],
+  double: [
+    "Driven past cover — two runs!",
+    "Good running, they come back for two.",
+    "Through the gap for a couple.",
+    "Cuts well, fields it at the fence — two.",
+    "Punched off the back foot, two more.",
+    "Driven hard, they turn for two.",
+    "Mis-timed but enough for two."
+  ],
+  triple: [
+    "Driven to the outfield — three runs!",
+    "Deep fielder struggles — three taken.",
+    "Powerful drive, three all the way.",
+    "Misfield allows three!"
+  ],
+  four: [
+    "FOUR! Cracked through the covers!",
+    "FOUR! Driven beautifully to the boundary.",
+    "FOUR! Pulled hard off the short delivery!",
+    "FOUR! Edged — flies through the gap!",
+    "FOUR! Swept all the way to the ropes!",
+    "FOUR! Full toss clattered away.",
+    "FOUR! Cut square — no stopping it!",
+    "FOUR! Flicked off the legs, races away!",
+    "FOUR! Driven on the up — stunning shot!",
+    "FOUR! Slapped over mid-off!"
+  ],
+  six: [
+    "SIX! Launches over long-on!",
+    "SIX! Whipped over mid-wicket — huge!",
+    "SIX! Steps out and lofts it miles!",
+    "SIX! Cleared the ropes with ease!",
+    "SIX! Flat-batted into the stands!",
+    "SIX! Swept mightily over fine leg!",
+    "SIX! Inside-out over extra cover!",
+    "SIX! Hit out of the ground!",
+    "SIX! Maximum! That's gone all the way!"
+  ],
+  wide: [
+    "Wide! Down the leg side.",
+    "Wide! Strays too far outside off.",
+    "Wide! Bowler gets penalised.",
+    "Wide down leg — poor delivery.",
+    "Wide! Way outside off stump.",
+    "Wide! Loses his line completely."
+  ],
+  noball: [
+    "No ball! Front foot over the line.",
+    "No ball — free hit coming up!",
+    "No ball! Bowler in trouble.",
+    "No ball! Steps over the crease.",
+    "No ball! And a free hit is given."
+  ],
+  wicket: {
+    bowled: [
+      "BOWLED HIM! Off stump out of the ground!",
+      "CLEAN BOWLED! Plays all around it!",
+      "BOWLED! Through the gate!"
+    ],
+    lbw: [
+      "OUT LBW! Struck in front — plumb!",
+      "LBW! Trapped right in front!",
+      "LBW! Huge appeal, given! On the knee roll!"
+    ],
+    caught: [
+      "CAUGHT! Mistimed — straight to cover!",
+      "CAUGHT! Goes for the big one and holes out!",
+      "CAUGHT at mid-off! Poor shot selection."
+    ],
+    'caught behind': [
+      "CAUGHT BEHIND! Edge carries to the keeper!",
+      "CAUGHT! Thin edge, keeper takes it cleanly.",
+      "EDGED! Gone behind! Great catch!"
+    ],
+    stumped: [
+      "STUMPED! Down the track and beaten!",
+      "STUMPED! Dances out, misses — keeper does the rest!",
+      "STUMPED! Out of his crease!"
+    ],
+    'run out': [
+      "RUN OUT! Mix-up between the batters!",
+      "RUN OUT! Direct hit — no need for a review!",
+      "RUN OUT! Caught short of the crease!"
+    ],
+    default: [
+      "OUT! Great delivery gets the wicket!",
+      "WICKET! Another one bites the dust!"
+    ]
+  },
+  freeHit: [
+    "FREE HIT! Extra pressure on the bowler.",
+    "FREE HIT! Batter can swing freely!",
+    "FREE HIT on the next delivery!"
+  ]
+};
+
+function _pickCommentary(outcome, dismissalType, isFreeHit, rng) {
+  if (isFreeHit && (outcome === 'dot' || outcome === 'single')) {
+    const list = COMMENTARY.freeHit;
+    return list[Math.floor(rng.next() * list.length)];
+  }
+
+  if (outcome === 'wicket') {
+    const type = dismissalType ?? 'default';
+    const list = COMMENTARY.wicket[type] ?? COMMENTARY.wicket.default;
+    return list[Math.floor(rng.next() * list.length)];
+  }
+
+  const list = COMMENTARY[outcome] ?? COMMENTARY.single;
+  return list[Math.floor(rng.next() * list.length)];
+}
+
+/* ============================================================
+   RUNS MAP — outcome → runs scored
+   ============================================================ */
+
+const OUTCOME_RUNS = {
+  dot:     0,
+  single:  1,
+  double:  2,
+  triple:  3,
+  four:    4,
+  six:     6,
+  wide:    1,
+  noball:  1,
+  wicket:  0
+};
+
+/* ============================================================
+   MAIN RESOLVER — resolveBall(matchState) → result
+   ============================================================ */
+
+export function resolveBall(matchState) {
   const {
-    batter,          // { ps, form, fatigue, role, roleSubtype, battingType, isAI }
-    bowler,          // { ps, form, fatigue, role, roleSubtype, bowlingType, isAI }
-    matchState,      // { overNumber, ballInOver, wicketsFallen, runsScored, target, ballsRemaining, runsRequired, inningsNumber }
-    venue,           // { pitchType }
-    fieldPreset,     // 'attacking'|'balanced'|'defensive'|'saving'|'spinTrap'|'paceTrap'
-    battingIntent,   // 'defensive'|'neutral'|'aggressive'|'attack'
-    bowlingIntent,   // 'defensive'|'neutral'|'aggressive'|'attack'
-    format,          // 'ODI'|'T20'|'T10'|'T5'|'BIZ'
-    difficulty,      // 'easy'|'medium'|'hard'
-    rng,             // SeededRNG instance
-    isFreeHit        // boolean
-  } = params;
+    batterPS       = 50,
+    bowlerPS       = 50,
+    batterForm     = 'average',
+    bowlerForm     = 'average',
+    batterFatigue  = 0,
+    bowlerFatigue  = 0,
+    batterRole     = 'batsman',
+    bowlerType     = 'pace',
+    battingIntent  = 'neutral',
+    bowlingIntent  = 'neutral',
+    fieldSetting   = 'balanced',
+    isFreeHit      = false,
+    phase          = 'middle',
+    difficulty     = 'medium',
+    venue          = 'neutral',
+    rng
+  } = matchState;
 
-  // ── STEP 1: Effective PS ──────────────────────────────────
-  const epsBat  = getEffectivePS(batter,  batter.isAI,  difficulty);
-  const epsBowl = getEffectivePS(bowler,  bowler.isAI,  difficulty);
+  if (!rng) throw new Error('resolveBall: rng is required');
 
-  // ── STEP 2: Delta ─────────────────────────────────────────
-  const delta = (epsBat - epsBowl) / 100.0;
+  // 1. Base weights from phase
+  const base = [...(BASE_WEIGHTS[phase] ?? BASE_WEIGHTS.middle)];
 
-  // ── STEP 3: Base Probabilities ────────────────────────────
-  let p_dot    = 0.30 - (delta * 0.15);
-  let p_single = 0.28 + (delta * 0.08);
-  let p_double = 0.12 + (delta * 0.04);
-  let p_four   = 0.14 + (delta * 0.10);
-  let p_six    = 0.06 + (delta * 0.07);
-  let p_wicket = 0.08 - (delta * 0.12);
-  let p_extra  = 0.02;
+  // 2. Build all modifier arrays
+  const biMul  = BATTING_INTENT_MUL[battingIntent]  ?? BATTING_INTENT_MUL.neutral;
+  const bwMul  = BOWLING_INTENT_MUL[bowlingIntent]  ?? BOWLING_INTENT_MUL.neutral;
+  const fMul   = FIELD_MUL[fieldSetting]            ?? FIELD_MUL.balanced;
+  const psMul  = _psModifier(batterPS, bowlerPS);
+  const bfMul  = FORM_BATTER_MUL[batterForm]        ?? FORM_BATTER_MUL.average;
+  const bwfMul = FORM_BOWLER_MUL[bowlerForm]        ?? FORM_BOWLER_MUL.average;
+  const fatMul = _fatigueMod(batterFatigue, bowlerFatigue);
+  const venMul = VENUE_MUL[venue]                   ?? VENUE_MUL.neutral;
+  const difMul = DIFFICULTY_MUL[difficulty]         ?? DIFFICULTY_MUL.medium;
+  const matMul = _matchupMod(bowlerType, batterRole);
+  const fhMul  = isFreeHit ? FREEHIT_MUL : Array(9).fill(1.0);
 
-  // ── STEP 4: MODIFIER 1 — Batting Intent ──────────────────
-  const bi = (battingIntent || 'neutral').toLowerCase();
-  if (bi === 'defensive') {
-    p_dot    += 0.02; p_single += 0.04;
-    p_four   -= 0.03; p_six    -= 0.02; p_wicket -= 0.02;
-  } else if (bi === 'aggressive') {
-    p_four   += 0.03; p_six    += 0.02;
-    p_dot    -= 0.03; p_wicket += 0.02;
-  } else if (bi === 'attack') {
-    p_six    += 0.05; p_four   += 0.03;
-    p_wicket += 0.04; p_dot    -= 0.04;
-  }
-  // neutral = no change
+  // 3. Combine
+  const weights = _combine(
+    base,
+    biMul, bwMul, fMul,
+    psMul, bfMul, bwfMul,
+    fatMul, venMul, difMul,
+    matMul, fhMul
+  );
 
-  // ── STEP 5: MODIFIER 2 — Field Setting ───────────────────
-  const fp = (fieldPreset || 'balanced').toLowerCase();
-  if (fp === 'attacking') {
-    p_wicket += 0.03; p_four -= 0.02; p_single -= 0.01;
-  } else if (fp === 'defensive') {
-    p_four -= 0.03; p_single += 0.02; p_dot += 0.01;
-  } else if (fp === 'saving') {
-    p_six -= 0.02; p_four -= 0.02; p_single += 0.03; p_double += 0.01;
-  } else if (fp === 'spintrap') {
-    p_wicket += 0.03; p_dot += 0.02; p_six += 0.01;
-  } else if (fp === 'pacetrap') {
-    p_wicket += 0.02; p_four -= 0.02;
-  }
-  // balanced = no change
+  // 4. Pick outcome
+  const idx     = _pick(weights, rng);
+  const outcome = OUTCOMES[idx];
 
-  // ── STEP 6: MODIFIER 3 — Fatigue Penalty ─────────────────
-  if ((bowler.fatigue || 'fresh').toLowerCase() === 'low') {
-    p_wicket -= 0.02; p_four += 0.01; p_six += 0.01;
-  }
-
-  // ── STEP 7: MODIFIER 4 — Pressure Index ──────────────────
-  if (matchState.inningsNumber === 2 && matchState.ballsRemaining > 0) {
-    const pressureIndex = matchState.runsRequired / matchState.ballsRemaining;
-    if (pressureIndex > 1.5) {
-      p_wicket += 0.03; p_six += 0.02; p_dot += 0.02;
-    } else if (pressureIndex < 0.5) {
-      p_single += 0.02; p_dot += 0.02;
-    }
-  }
-
-  // ── STEP 8: MODIFIER 5 — Role Modifier ───────────────────
-  const batSub  = (batter.roleSubtype  || '').toLowerCase();
-  const bowlSub = (bowler.roleSubtype  || '').toLowerCase();
-
-  // Batter role subtypes
-  if (batSub === 'finisher') {
-    p_six += 0.04; p_dot -= 0.02; p_wicket += 0.02;
-  } else if (batSub === 'top order') {
-    p_single += 0.02; p_double += 0.01;
-  } else if (batSub === 'middle order') {
-    p_single += 0.01; p_four += 0.01;
-  }
-
-  // Bowler role subtypes
-  if (bowlSub === 'death bowler') {
-    p_wicket += 0.02; p_dot += 0.02; p_six -= 0.02;
-  } else if (bowlSub === 'powerplay bowler') {
-    p_wicket += 0.01; p_four -= 0.01;
-  }
-
-  // ── STEP 9: MODIFIER 6 — Pitch Modifier ──────────────────
-  const pitch   = (venue?.pitchType || 'good').toLowerCase();
-  const bType   = (bowler.bowlingType || 'pace').toLowerCase();
-
-  if (pitch === 'flat') {
-    p_four += 0.03; p_six += 0.02; p_wicket -= 0.03;
-  } else if (pitch === 'deteriorating') {
-    p_wicket += 0.02; p_dot += 0.01; p_four -= 0.02;
-  } else if (pitch === 'rank turner') {
-    if (bType === 'spin') {
-      p_wicket += 0.05; p_dot += 0.03; p_four -= 0.04; p_six -= 0.03;
-    } else {
-      // pace on turner gets slight advantage too
-      p_wicket += 0.01; p_dot += 0.01;
-    }
-  }
-  // good pitch = no change
-
-  // ── STEP 10: MODIFIER 7 — Phase Modifier ─────────────────
-  const phase = getPhase(matchState.overNumber, format);
-  if (phase === 'powerplay') {
-    p_four += 0.02; p_six += 0.01; p_wicket += 0.01;
-  } else if (phase === 'middle') {
-    p_dot += 0.02; p_single += 0.01; p_wicket -= 0.01;
-  } else if (phase === 'death') {
-    p_six += 0.03; p_four += 0.02; p_wicket += 0.02; p_dot -= 0.03;
-  }
-
-  // ── STEP 11: MODIFIER 8 — Difficulty Outcome ─────────────
-  const diff = (difficulty || 'medium').toLowerCase();
-  const userIsBatting = !batter.isAI;
-
-  if (diff === 'easy') {
-    if (userIsBatting) {
-      // Easier for user batter
-      p_wicket -= 0.03; p_four += 0.02; p_dot -= 0.02;
-    } else {
-      // Easier for user bowler
-      p_wicket += 0.02; p_four -= 0.02; p_dot += 0.01;
-    }
-  } else if (diff === 'hard') {
-    if (userIsBatting) {
-      // Harder for user batter
-      p_wicket += 0.03; p_four -= 0.02; p_dot += 0.02;
-    } else {
-      // Harder for user bowler
-      p_wicket -= 0.02; p_four += 0.02; p_dot -= 0.01;
-    }
-  }
-  // medium = no change
-
-  // ── STEP 12: Free Hit — wicket not possible ───────────────
-  if (isFreeHit) {
-    p_dot    += p_wicket * 0.6; // redistribute wicket prob
-    p_single += p_wicket * 0.4;
-    p_wicket  = 0;
-  }
-
-  // ── STEP 13: Clamp all to min 0 ──────────────────────────
-  p_dot    = Math.max(0, p_dot);
-  p_single = Math.max(0, p_single);
-  p_double = Math.max(0, p_double);
-  p_four   = Math.max(0, p_four);
-  p_six    = Math.max(0, p_six);
-  p_wicket = Math.max(0, p_wicket);
-  p_extra  = Math.max(0, p_extra);
-
-  // ── STEP 14: Normalize to 1.0 ────────────────────────────
-  const total = p_dot + p_single + p_double + p_four + p_six + p_wicket + p_extra;
-  p_dot    /= total;
-  p_single /= total;
-  p_double /= total;
-  p_four   /= total;
-  p_six    /= total;
-  p_wicket /= total;
-  p_extra  /= total;
-
-  // ── STEP 15: Weighted RNG Pick ────────────────────────────
-  const rand = rng.next();
-  const buckets = [
-    { key: 'dot',    runs: 0, cumulative: p_dot },
-    { key: 'single', runs: 1, cumulative: p_dot + p_single },
-    { key: 'double', runs: 2, cumulative: p_dot + p_single + p_double },
-    { key: 'four',   runs: 4, cumulative: p_dot + p_single + p_double + p_four },
-    { key: 'six',    runs: 6, cumulative: p_dot + p_single + p_double + p_four + p_six },
-    { key: 'wicket', runs: 0, cumulative: p_dot + p_single + p_double + p_four + p_six + p_wicket },
-    { key: 'extra',  runs: 1, cumulative: 1.0 }
-  ];
-
-  let outcome = buckets[buckets.length - 1];
-  for (const b of buckets) {
-    if (rand < b.cumulative) { outcome = b; break; }
-  }
-
-  // ── STEP 16: Wicket — determine dismissal type ────────────
+  // 5. Wicket resolution
+  let isWicket     = outcome === 'wicket';
   let dismissalType = null;
-  let isDrsEligible = false;
+  let dismissalText = null;
+  let fielderName  = null;
 
-  if (outcome.key === 'wicket') {
-    const bTypeForDismissal = (bowler.bowlingType || 'pace').toLowerCase();
-    const dRand = rng.next();
-
-    if (bTypeForDismissal === 'pace') {
-      if      (dRand < 0.30) dismissalType = 'bowled';
-      else if (dRand < 0.65) dismissalType = 'caught';
-      else if (dRand < 0.85) dismissalType = 'lbw';
-      else                   dismissalType = 'caught_behind';
-    } else {
-      // spin
-      if      (dRand < 0.25) dismissalType = 'bowled';
-      else if (dRand < 0.45) dismissalType = 'caught';
-      else if (dRand < 0.65) dismissalType = 'lbw';
-      else if (dRand < 0.80) dismissalType = 'stumped';
-      else                   dismissalType = 'caught_behind';
-    }
-
-    isDrsEligible = (dismissalType === 'lbw' || dismissalType === 'caught_behind');
+  if (isWicket) {
+    dismissalType = _pickDismissalType(bowlerType, bowlingIntent, rng);
+    // Pick a random fielder name from a simple roster placeholder
+    fielderName   = _pickFielderName(rng);
+    dismissalText = _buildDismissalText(
+      dismissalType,
+      matchState.bowlerName ?? 'bowler',
+      fielderName
+    );
   }
 
-  // ── STEP 17: Extra — determine type ──────────────────────
-  let extraType = null;
-  let isFreeHitNext = false;
-  if (outcome.key === 'extra') {
-    const eRand = rng.next();
-    extraType = eRand < 0.6 ? 'wide' : 'no_ball';
-    // Free hit on no-ball for all formats
-    if (extraType === 'no_ball' && FORMAT_CONFIG[format]?.freeHit) {
-      isFreeHitNext = true;
-    }
-  }
+  // 6. Runs
+  const runs = OUTCOME_RUNS[outcome] ?? 0;
 
-  // ── STEP 18: Commentary ───────────────────────────────────
-  const commentary = generateCommentary(outcome.key, dismissalType, extraType, batter, bowler, delta);
+  // 7. Commentary
+  const commentary = _pickCommentary(outcome, dismissalType, isFreeHit, rng);
 
-  // ── RETURN ────────────────────────────────────────────────
+  // 8. Build result
   return {
-    outcome:        outcome.key,
-    runs:           outcome.runs,
-    isWicket:       outcome.key === 'wicket',
+    outcome,
+    runs,
+    isWicket,
     dismissalType,
-    isDrsEligible,
-    isFreeHitNext,
-    extraType,
+    dismissalText,
+    fielderName,
     commentary,
-    // Debug info
-    _debug: {
-      delta: delta.toFixed(4),
-      epsBat: epsBat.toFixed(2),
-      epsBowl: epsBowl.toFixed(2),
-      probabilities: {
-        dot: p_dot.toFixed(4), single: p_single.toFixed(4),
-        double: p_double.toFixed(4), four: p_four.toFixed(4),
-        six: p_six.toFixed(4), wicket: p_wicket.toFixed(4),
-        extra: p_extra.toFixed(4)
-      },
-      rand: rand.toFixed(4),
-      phase
-    }
+    isFreeHit: outcome === 'noball' // next ball is free hit
   };
 }
 
-// ─────────────────────────────────────────────────────────────
-// 2E — DRS SYSTEM
-// ─────────────────────────────────────────────────────────────
-function resolve_drs(bowlerPS, rng) {
-  const overturnChance = 0.30 + ((bowlerPS - 50) / 100 * 0.30);
-  const clampedChance  = Math.min(0.60, Math.max(0.15, overturnChance));
-  const rand = rng.next();
-  // overturnChance = chance original OUT is correct = DRS fails for batter
-  // So if rand < overturnChance → OUT upheld → DRS FAILED
-  //    if rand >= overturnChance → NOT OUT   → DRS SUCCEEDED
-  const upheld = rand < clampedChance;
-  return {
-    upheld,           // true = batter still OUT | false = batter NOT OUT
-    overturnChance:   clampedChance.toFixed(3),
-    result:           upheld ? 'OUT — Upheld' : 'NOT OUT — Overturned'
+/* ============================================================
+   DRS REVIEW RESOLVER
+   Takes the original result + live state, returns overturned bool
+   ============================================================ */
+
+export function reviewDRSResult(result, live) {
+  if (!result || !result.isWicket) {
+    return { overturned: false, reason: 'No wicket to review' };
+  }
+
+  const rng = live.rng ?? { next: Math.random };
+
+  // Dismissal types that can be overturned:
+  const overturnableTypes = ['lbw', 'caught', 'caught behind', 'stumped'];
+  if (!overturnableTypes.includes(result.dismissalType)) {
+    return { overturned: false, reason: 'Bowled — cannot overturn' };
+  }
+
+  // Base overturn probability by dismissal type
+  const basePct = {
+    lbw:            0.32,
+    caught:         0.20,
+    'caught behind':0.28,
+    stumped:        0.18
   };
-}
 
-// ─────────────────────────────────────────────────────────────
-// 2C — INNINGS SIMULATION
-// ─────────────────────────────────────────────────────────────
-function simulate_innings(params) {
-  const {
-    battingTeam,    // array of 11 player objects (batting order)
-    bowlingTeam,    // array of 11 player objects
-    bowlingOrder,   // array of player IDs in bowling rotation order
-    format,
-    venue,
-    difficulty,
-    rng,
-    target,         // null for innings 1 | number for innings 2
-    inningsNumber,  // 1 or 2
-    userTeamId,     // to determine isAI flags
-    fieldPreset,    // starting field preset
-    battingIntent,  // starting batting intent
-    bowlingIntent   // starting bowling intent
-  } = params;
+  let p = basePct[result.dismissalType] ?? 0.20;
 
-  const cfg = FORMAT_CONFIG[format];
-  const maxOvers   = cfg.overs;
-  const maxPerBowl = cfg.maxPerBowler;
+  // Difficulty modifier — harder = umpires more accurate
+  const diffAdj = {
+    easy:   +0.15,
+    medium:  0,
+    hard:   -0.08,
+    expert: -0.14
+  };
+  p += diffAdj[live.difficulty ?? 'medium'] ?? 0;
 
-  // ── State ─────────────────────────────────────────────────
-  let totalRuns    = 0;
-  let wickets      = 0;
-  let legalBalls   = 0;
-  let isFreeHit    = false;
-  let currentOver  = 1;
+  // Clamp
+  p = Math.max(0.05, Math.min(0.55, p));
 
-  // Batter tracking
-  const batterStats = {};
-  battingTeam.forEach(p => {
-    batterStats[p.id] = { runs: 0, balls: 0, fours: 0, sixes: 0, dismissal: null };
-  });
-
-  // Bowler tracking
-  const bowlerStats = {};
-  bowlingTeam.forEach(p => {
-    bowlerStats[p.id] = { overs: 0, balls: 0, wickets: 0, runs: 0, extras: 0 };
-  });
-
-  // Bowling rotation state
-  const bowlerOverCount = {};
-  bowlingTeam.forEach(p => { bowlerOverCount[p.id] = 0; });
-  let lastBowlerId      = null;
-
-  // Batting order state
-  let strikerIdx    = 0; // index in battingTeam
-  let nonStrikerIdx = 1;
-  let nextBatterIdx = 2;
-
-  // Scorecard
-  const overs           = [];
-  const fallOfWickets   = [];
-  const extras          = { wides: 0, noBalls: 0, total: 0 };
-
-  // Current over intent tracking (can change per ball in ball-by-ball)
-  let currentFieldPreset  = fieldPreset  || 'balanced';
-  let currentBatIntent    = battingIntent || 'neutral';
-  let currentBowlIntent   = bowlingIntent || 'neutral';
-
-  // ── Helper: pick next bowler ──────────────────────────────
-  function pickNextBowler(overNum) {
-    // Use bowling order array, skip if: quota exceeded or bowled previous over
-    for (const pid of bowlingOrder) {
-      if (pid === lastBowlerId) continue;
-      if ((bowlerOverCount[pid] || 0) >= maxPerBowl) continue;
-      return pid;
-    }
-    // Fallback: anyone available
-    for (const pid of bowlingOrder) {
-      if ((bowlerOverCount[pid] || 0) < maxPerBowl) return pid;
-    }
-    return bowlingOrder[0]; // last resort
-  }
-
-  // ── Main innings loop ─────────────────────────────────────
-  while (currentOver <= maxOvers && wickets < 10) {
-    const bowlerId    = pickNextBowler(currentOver);
-    const bowler      = bowlingTeam.find(p => p.id === bowlerId);
-    bowlerStats[bowlerId].balls = bowlerStats[bowlerId].balls || 0;
-
-    const overRecord  = { overNumber: currentOver, bowlerId, balls: [], runsThisOver: 0, wicketsThisOver: 0 };
-    let ballsThisOver = 0; // legal balls only
-
-    while (ballsThisOver < 6 && wickets < 10) {
-      const batter      = battingTeam[strikerIdx];
-      const totalBalls  = currentOver * 6 - (6 - ballsThisOver);
-      const ballsLeft   = (maxOvers * 6) - (legalBalls);
-      const runsNeeded  = target ? (target - totalRuns) : 0;
-
-      const result = resolve_ball({
-        batter:       { ...batter, isAI: batter.teamId !== userTeamId },
-        bowler:       { ...bowler, isAI: bowler.teamId !== userTeamId },
-        matchState: {
-          overNumber:     currentOver,
-          ballInOver:     ballsThisOver + 1,
-          wicketsFallen:  wickets,
-          runsScored:     totalRuns,
-          target:         target || null,
-          ballsRemaining: ballsLeft,
-          runsRequired:   runsNeeded,
-          inningsNumber
-        },
-        venue,
-        fieldPreset:    currentFieldPreset,
-        battingIntent:  currentBatIntent,
-        bowlingIntent:  currentBowlIntent,
-        format,
-        difficulty,
-        rng,
-        isFreeHit
-      });
-
-      // ── Process result ──────────────────────────────────
-      isFreeHit = result.isFreeHitNext;
-
-      if (result.outcome === 'extra') {
-        // Extra — ball not counted as legal, re-bowl
-        if (result.extraType === 'wide') {
-          totalRuns++; extras.wides++; extras.total++;
-          bowlerStats[bowlerId].runs++;
-          bowlerStats[bowlerId].extras++;
-        } else if (result.extraType === 'no_ball') {
-          totalRuns++; extras.noBalls++; extras.total++;
-          bowlerStats[bowlerId].runs++;
-          bowlerStats[bowlerId].extras++;
-        }
-        overRecord.balls.push({ ...result, ballNumber: ballsThisOver + 1, isLegal: false });
-        // Do NOT increment ballsThisOver — re-bowl
-      } else {
-        // Legal ball
-        legalBalls++;
-        ballsThisOver++;
-        totalRuns += result.runs;
-        bowlerStats[bowlerId].runs += result.runs;
-
-        const bs = batterStats[batter.id];
-        bs.balls++;
-        bs.runs += result.runs;
-        if (result.runs === 4) bs.fours++;
-        if (result.runs === 6) bs.sixes++;
-
-        if (result.isWicket) {
-          bs.dismissal = result.dismissalType;
-          fallOfWickets.push({ wicketNumber: wickets + 1, runsAtFall: totalRuns, overAtFall: `${currentOver}.${ballsThisOver}` });
-          wickets++;
-          overRecord.wicketsThisOver++;
-          bowlerStats[bowlerId].wickets++;
-
-          // Bring in new batter
-          if (nextBatterIdx < battingTeam.length) {
-            strikerIdx = nextBatterIdx++;
-          }
-        }
-
-        // Strike rotation — odd runs swap striker
-        if (!result.isWicket) {
-          if (result.runs % 2 !== 0) {
-            [strikerIdx, nonStrikerIdx] = [nonStrikerIdx, strikerIdx];
-          }
-        }
-
-        overRecord.balls.push({ ...result, ballNumber: ballsThisOver, isLegal: true });
-        overRecord.runsThisOver += result.runs;
-
-        // Check if innings 2 target reached
-        if (target && totalRuns >= target) break;
-      }
-    } // end ball loop
-
-    // End of over — swap strike
-    [strikerIdx, nonStrikerIdx] = [nonStrikerIdx, strikerIdx];
-
-    bowlerStats[bowlerId].overs += 1;
-    bowlerOverCount[bowlerId]   = (bowlerOverCount[bowlerId] || 0) + 1;
-    lastBowlerId                = bowlerId;
-
-    overs.push(overRecord);
-    currentOver++;
-
-    // Check target reached
-    if (target && totalRuns >= target) break;
-  }
-
-  // ── Build batting scorecard ───────────────────────────────
-  const battingScorecard = battingTeam.map(p => ({
-    playerId:   p.id,
-    playerName: p.name,
-    runs:       batterStats[p.id].runs,
-    balls:      batterStats[p.id].balls,
-    fours:      batterStats[p.id].fours,
-    sixes:      batterStats[p.id].sixes,
-    dismissal:  batterStats[p.id].dismissal,
-    notOut:     batterStats[p.id].dismissal === null
-  })).filter(p => p.balls > 0 || p.notOut);
-
-  // ── Build bowling figures ─────────────────────────────────
-  const bowlingFigures = bowlingTeam
-    .filter(p => bowlerStats[p.id].overs > 0)
-    .map(p => ({
-      playerId:   p.id,
-      playerName: p.name,
-      overs:      bowlerStats[p.id].overs,
-      wickets:    bowlerStats[p.id].wickets,
-      runs:       bowlerStats[p.id].runs,
-      extras:     bowlerStats[p.id].extras
-    }));
+  const overturned = rng.next() < p;
 
   return {
-    totalRuns,
-    wickets,
-    oversFaced:     currentOver - 1,
-    battingScorecard,
-    bowlingFigures,
-    fallOfWickets,
-    extras,
-    overs,
-    // Result check for innings 2
-    targetReached:  target ? totalRuns >= target : null
+    overturned,
+    reason: overturned
+      ? 'Ball tracking shows missing leg stump — NOT OUT'
+      : 'Ball tracking confirms — OUT'
   };
 }
 
-// ─────────────────────────────────────────────────────────────
-// simulate_match() — Full match wrapper
-// ─────────────────────────────────────────────────────────────
-function simulate_match(params) {
-  const {
-    teamA,          // { id, name, players[], battingOrder[], bowlingOrder[] }
-    teamB,          // { id, name, players[], battingOrder[], bowlingOrder[] }
-    format,
-    venue,
-    difficulty,
-    seed,
-    userTeamId,
-    tossCoinResult, // optional override; if null, engine flips
-    tossDecision    // 'bat' | 'bowl' — user's choice if they win toss
-  } = params;
+/* ============================================================
+   GENERATE COMMENTARY (standalone — for UI overlays)
+   ============================================================ */
 
-  const rng = new SeededRNG(seed || Math.floor(Math.random() * 999999));
-
-  // ── Toss ──────────────────────────────────────────────────
-  const tossWinner   = rng.next() < 0.5 ? teamA.id : teamB.id;
-  const tossDecision_ = tossWinner === userTeamId
-    ? (tossDecision || 'bat')
-    : (rng.next() < 0.5 ? 'bat' : 'bowl'); // AI randomly decides
-
-  const battingFirstId = (tossDecision_ === 'bat') ? tossWinner
-    : (tossWinner === teamA.id ? teamB.id : teamA.id);
-
-  const battingFirst  = battingFirstId === teamA.id ? teamA : teamB;
-  const bowlingFirst  = battingFirstId === teamA.id ? teamB : teamA;
-
-  // ── Innings 1 ─────────────────────────────────────────────
-  const innings1 = simulate_innings({
-    battingTeam:    battingFirst.battingOrder.map(id => battingFirst.players.find(p => p.id === id)),
-    bowlingTeam:    bowlingFirst.players,
-    bowlingOrder:   bowlingFirst.bowlingOrder,
-    format,
-    venue,
-    difficulty,
-    rng,
-    target:         null,
-    inningsNumber:  1,
-    userTeamId,
-    fieldPreset:    'balanced',
-    battingIntent:  'neutral',
-    bowlingIntent:  'neutral'
-  });
-
-  const target = innings1.totalRuns + 1;
-
-  // ── Innings 2 ─────────────────────────────────────────────
-  const innings2 = simulate_innings({
-    battingTeam:    bowlingFirst.battingOrder.map(id => bowlingFirst.players.find(p => p.id === id)),
-    bowlingTeam:    battingFirst.players,
-    bowlingOrder:   battingFirst.bowlingOrder,
-    format,
-    venue,
-    difficulty,
-    rng,
-    target,
-    inningsNumber:  2,
-    userTeamId,
-    fieldPreset:    'balanced',
-    battingIntent:  'neutral',
-    bowlingIntent:  'neutral'
-  });
-
-  // ── Result ────────────────────────────────────────────────
-  let result, winMargin;
-  if (innings2.targetReached) {
-    result    = bowlingFirst.id;
-    winMargin = { wickets: 10 - innings2.wickets };
-  } else if (innings2.totalRuns === innings1.totalRuns) {
-    result    = 'tie';
-    winMargin = null;
-  } else {
-    result    = battingFirst.id;
-    winMargin = { runs: innings1.totalRuns - innings2.totalRuns };
-  }
-
-  // ── Player of the Match ───────────────────────────────────
-  const potm = selectPlayerOfMatch(innings1, innings2);
-
-  return {
-    matchId:       generateMatchId(teamA, teamB, format),
-    format,
-    venueId:       venue?.id || null,
-    seed:          rng.initialSeed,
-    tossWinner,
-    tossDecision:  tossDecision_,
-    battingFirstId,
-    innings1,
-    innings2,
-    result,
-    winMargin,
-    playerOfMatch: potm,
-    teamAId:       teamA.id,
-    teamBId:       teamB.id
-  };
+export function generateCommentary(outcome, dismissalType, isFreeHit, rng) {
+  return _pickCommentary(outcome, dismissalType, isFreeHit, rng ?? { next: Math.random });
 }
 
-// ─────────────────────────────────────────────────────────────
-// 2F — POST-MATCH STATS WRITER
-// ─────────────────────────────────────────────────────────────
-function writePostMatchStats(matchResult, db) {
-  const { innings1, innings2, result, winMargin, matchId, teamAId, teamBId } = matchResult;
+/* ============================================================
+   HELPERS
+   ============================================================ */
 
-  // Write batting stats for both innings
-  [innings1, innings2].forEach(innings => {
-    innings.battingScorecard.forEach(batter => {
-      const existing = db.exec(`SELECT career_stats FROM Players WHERE id = '${batter.playerId}'`);
-      if (!existing[0]?.values[0]) return;
+// Placeholder fielder names — replace with real XI names from matchState
+// in a future pass if bowlingXI is passed into resolveBall
+const _FIELDER_POOL = [
+  'mid-off', 'cover', 'deep square leg', 'fine leg',
+  'long-on', 'mid-wicket', 'third man', 'slip'
+];
 
-      let stats = JSON.parse(existing[0].values[0][0] || '{}');
-      stats.batting = stats.batting || { runs: 0, balls: 0, fours: 0, sixes: 0, innings: 0, notOuts: 0 };
-      stats.batting.runs    += batter.runs;
-      stats.batting.balls   += batter.balls;
-      stats.batting.fours   += batter.fours;
-      stats.batting.sixes   += batter.sixes;
-      stats.batting.innings += 1;
-      if (batter.notOut) stats.batting.notOuts += 1;
-
-      db.run(`UPDATE Players SET career_stats = ? WHERE id = ?`,
-        [JSON.stringify(stats), batter.playerId]);
-    });
-
-    innings.bowlingFigures.forEach(bowler => {
-      const existing = db.exec(`SELECT career_stats FROM Players WHERE id = '${bowler.playerId}'`);
-      if (!existing[0]?.values[0]) return;
-
-      let stats = JSON.parse(existing[0].values[0][0] || '{}');
-      stats.bowling = stats.bowling || { overs: 0, wickets: 0, runs: 0, extras: 0, innings: 0 };
-      stats.bowling.overs   += bowler.overs;
-      stats.bowling.wickets += bowler.wickets;
-      stats.bowling.runs    += bowler.runs;
-      stats.bowling.extras  += bowler.extras;
-      stats.bowling.innings += 1;
-
-      db.run(`UPDATE Players SET career_stats = ? WHERE id = ?`,
-        [JSON.stringify(stats), bowler.playerId]);
-    });
-  });
-
-  // Write to Fixtures table
-  db.run(`UPDATE Fixtures SET
-    home_score = ?, away_score = ?, result = ?, match_data = ?
-    WHERE match_id = ?`, [
-    innings1.totalRuns + '/' + innings1.wickets,
-    innings2.totalRuns + '/' + innings2.wickets,
-    result === 'tie' ? 'tie' : `${result}_win`,
-    JSON.stringify(matchResult),
-    matchId
-  ]);
-
-  // Update SeasonPoints
-  if (result !== 'tie') {
-    db.run(`UPDATE SeasonPoints SET wins = wins + 1, points = points + 2 WHERE team_id = ?`, [result]);
-    const loser = result === teamAId ? teamBId : teamAId;
-    db.run(`UPDATE SeasonPoints SET losses = losses + 1 WHERE team_id = ?`, [loser]);
-  } else {
-    db.run(`UPDATE SeasonPoints SET draws = draws + 1, points = points + 1 WHERE team_id = ?`, [teamAId]);
-    db.run(`UPDATE SeasonPoints SET draws = draws + 1, points = points + 1 WHERE team_id = ?`, [teamBId]);
-  }
+function _pickFielderName(rng) {
+  const idx = Math.floor(rng.next() * _FIELDER_POOL.length);
+  return _FIELDER_POOL[idx];
 }
-
-// ─────────────────────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────────────────────
-function selectPlayerOfMatch(inn1, inn2) {
-  let best = null, bestScore = -1;
-  [...inn1.battingScorecard, ...inn2.battingScorecard].forEach(b => {
-    const score = b.runs + (b.fours * 0.5) + (b.sixes * 1.5);
-    if (score > bestScore) { bestScore = score; best = b.playerId; }
-  });
-  [...inn1.bowlingFigures, ...inn2.bowlingFigures].forEach(b => {
-    const score = b.wickets * 25 - b.runs * 0.1;
-    if (score > bestScore) { bestScore = score; best = b.playerId; }
-  });
-  return best;
-}
-
-function generateMatchId(teamA, teamB, format) {
-  const ts = Date.now().toString(36).toUpperCase();
-  return `${teamA.shortName || teamA.id}-${teamB.shortName || teamB.id}-${format}-${ts}`;
-}
-
-function generateCommentary(outcome, dismissalType, extraType, batter, bowler, delta) {
-  const batterName = batter?.name || 'Batter';
-  const bowlerName = bowler?.name || 'Bowler';
-  const comments = {
-    dot:    [`Defended solidly. Dot ball.`, `Good length, played out carefully.`, `Beats the outside edge — dot!`],
-    single: [`Pushed to mid-on, quick single.`, `Worked to leg, easy single.`, `Tapped to cover, one run.`],
-    double: [`Driven to the gap, they run two!`, `Misfield in the outfield — two runs!`, `Good running between the wickets, two!`],
-    four:   [`FOUR! Cracked through the covers!`, `FOUR! Driven magnificently!`, `FOUR! Pulled off the hip — boundary!`],
-    six:    [`SIX! Absolutely towering hit!`, `SIX! Over long-on, that's massive!`, `SIX! Cleared the rope with ease!`],
-    wicket: {
-      bowled:        `BOWLED! Through the gate — timber!`,
-      caught:        `CAUGHT! Up in the air and taken!`,
-      lbw:           `LBW! Struck on the pad, finger goes up!`,
-      caught_behind: `CAUGHT BEHIND! Edge through to the keeper!`,
-      stumped:       `STUMPED! Down the track and beaten — out!`,
-      run_out:       `RUN OUT! Direct hit — that's out!`
-    },
-    extra: {
-      wide:   `Wide ball — extra run awarded.`,
-      no_ball: `NO BALL! Free hit on the next delivery!`
-    }
-  };
-
-  if (outcome === 'wicket') return comments.wicket[dismissalType] || 'OUT!';
-  if (outcome === 'extra')  return comments.extra[extraType]      || 'Extra.';
-
-  const arr = comments[outcome] || ['Ball played.'];
-  // Pick comment deterministically based on delta
-  return arr[Math.floor(Math.abs(delta) * arr.length) % arr.length];
-}
-
-// ─────────────────────────────────────────────────────────────
-// EXPORTS
-// ─────────────────────────────────────────────────────────────
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    SeededRNG,
-    FORMAT_CONFIG,
-    resolve_ball,
-    resolve_drs,
-    simulate_innings,
-    simulate_match,
-    writePostMatchStats,
-    getPhase,
-    getEffectivePS
-  };
-}
-

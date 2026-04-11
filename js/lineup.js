@@ -674,41 +674,61 @@ function _persistMatchData() {
 // ─── GO TO MATCH ─────────────────────────────────────────────────────────────
 function goToMatch() {
   if (!_slot || _slot.slotIndex === undefined) {
-    toast("Error: Match slot not found.");
+    toast('Error: Match slot not found.');
     return;
   }
 
   const venueObj = _allVenues.find(v => v.id === state.venueId) || null;
 
+  // Auto-complete bowling plan if gaps remain
+  const overs    = Number(_slot.overs) || 20;
+  const assigned = Object.values(state.bowlAssign).flat().length;
+  if (assigned < overs) {
+    state.bowlAssign = play11AIbowling(state.userXI, _slot.difficulty, formatFromOvers(), overs, state.bowlAssign);
+  }
+
+  // Build UCMCURRENTMATCH — this is what match.js reads
   const matchData = {
-    userTeam: _slot.userTeam,
-    oppTeam:  _slot.oppTeam,
-    overs:    _slot.overs,
-    diff:     _slot.difficulty,
-    venueId:  state.venueId,
-    venue:    venueObj,
-    userXI:   state.userXI,
-    oppXI:    state.oppXI,
+    matchId:    _slot.slotName || `match-${Date.now()}`,
+    format:     _formatFromOvers(),
+    mode:       'Friendly',
+    userTeam:   _slot.userTeam,
+    oppTeam:    _slot.oppTeam,
+    overs:      Number(_slot.overs) || 20,
+    difficulty: _slot.difficulty || 'medium',
+    seed:       Math.floor(Math.random() * 999999),
+    venueId:    state.venueId,
+    venue:      venueObj,
+    userXI:     state.userXI,
+    oppXI:      state.oppXI,
+    userBatOrder:  state.userBatOrder,
+    oppBatOrder:   state.oppBatOrder,
+    bowlAssign:    state.bowlAssign,
+    oppBowlAssign: state.oppBowlAssign,
+    userCaptain:   state.userCaptain,
+    oppCaptain:    state.oppCaptain,
     toss: {
       outcome:      _tossOutcome,
       userWon:      _userWonToss,
-      userDecision: _userDecision
+      userDecision: _userDecision,
+      venueSide:    _tossVenueSide
     }
   };
 
-  sessionStorage.setItem('UCM_CURRENT_MATCH', JSON.stringify(matchData));
+  sessionStorage.setItem('UCMCURRENTMATCH', JSON.stringify(matchData));
 
+  // Also persist to slot for smart-resume
   if (window.saveMatchData) {
     try {
       window.saveMatchData(_slot.slotIndex, matchData);
-      window.location.href = 'match.html';
     } catch (e) {
-      console.error("Save Failed:", e);
-      toast("Failed to save match.");
+      console.error('Save Failed', e);
+      toast('Failed to save match.');
     }
   }
-}
 
+  window.location.href = 'match.html';
+}
 
 
 // ─── VENUE HELPERS ───────────────────────────────────────────────────────────

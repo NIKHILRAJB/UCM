@@ -1,0 +1,300 @@
+/* ============================================================
+   UCM — MATCH-PATCH.CSS
+   Append this file to your existing css/match.css
+   OR add <link rel="stylesheet" href="css/match-patch.css">
+   after match.css in match.html (already done in the new match.html)
+
+   FIX #72  manhattan-canvas responsive (no hardcoded w/h)
+   FIX #73  rr-canvas responsive
+   FIX #74  image-rendering crisp for devicePixelRatio scaling
+   FIX #75  .stats-team-labels row above scoring breakdown
+   FIX #33  .result-actions dual-button layout
+   FIX #5   .resume-overlay + card styles
+   FIX #6   .drs-result-overlay + card styles
+   FIX #7   .freehit-banner styles
+   FIX #34  .field-popup__footer + close button
+   FIX #37  .intent-row--opponent styles
+   Bonus    abandon-type-overlay styles
+   Bonus    Status / NB / Wd scorecard column sizing
+   ============================================================ */
+
+/* ── FIX #72 / #73 — Canvas responsive sizing ──────────────── */
+.manhattan-wrap,
+.rr-chart-wrap {
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-offset);
+}
+
+#manhattan-canvas,
+#rr-canvas {
+  width: 100% !important;   /* override any inline width attrs */
+  height: auto;
+  display: block;
+  /* FIX #74: stay sharp at 2× / 3× devicePixelRatio */
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+/* ── FIX #75 — Team label row above scoring breakdown ───────── */
+.stats-team-labels {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-divider);
+  margin-bottom: var(--space-1);
+}
+.stats-team-labels span:first-child { text-align: left; }
+.stats-team-labels span:last-child  { text-align: right; }
+.stats-team-labels span:nth-child(2){ text-align: center; }
+
+/* ── FIX #33 — Dual result action buttons ───────────────────── */
+.result-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+}
+.result-actions .btn-continue {
+  width: 100%;
+}
+.btn-continue--gold {
+  background: var(--color-primary) !important;
+  color: var(--color-text-inverse) !important;
+}
+
+/* ── FIX #5 — Resume overlay ────────────────────────────────── */
+.resume-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.75);
+}
+.resume-overlay.hidden { display: none !important; }
+
+.resume-card {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  max-width: 360px;
+  width: 100%;
+  text-align: center;
+}
+.resume-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: var(--space-4);
+}
+.resume-body {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-6);
+  max-width: 100%;
+}
+.resume-btns {
+  display: flex;
+  gap: var(--space-3);
+}
+.btn-resume-yes {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-weight: 700;
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+}
+.btn-resume-yes:hover { background: var(--color-primary-hover); }
+.btn-resume-no {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-offset);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  font-weight: 600;
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+}
+.btn-resume-no:hover { background: var(--color-surface-dynamic); }
+
+/* ── FIX #6 — DRS result overlay ───────────────────────────── */
+.drs-result-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.82);
+}
+.drs-result-overlay.hidden { display: none !important; }
+
+.drs-result-card {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  max-width: 340px;
+  width: 100%;
+  text-align: center;
+}
+.drs-result-icon {
+  font-size: 2.5rem;
+  margin-bottom: var(--space-3);
+}
+.drs-result-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-3);
+}
+.drs-result-body {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+  max-width: 100%;
+}
+.drs-result-reviews {
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  margin-bottom: var(--space-6);
+}
+
+/* ── FIX #7 — Free hit banner ───────────────────────────────── */
+.freehit-banner {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  text-align: center;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-freehit-dim);
+  border-bottom: 1px solid rgba(74, 222, 128, 0.35);
+  color: var(--color-freehit);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.freehit-banner.hidden { display: none !important; }
+
+/* ── FIX #34 — Field popup footer + close button ────────────── */
+.field-popup__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-divider);
+  margin-top: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.field-popup__close {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  cursor: pointer;
+}
+.field-popup__close:hover { color: var(--color-text); }
+
+/* ── FIX #37 — Opponent intent row ─────────────────────────── */
+.intent-row--opponent {
+  background: var(--color-surface-offset);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2) var(--space-3);
+  gap: var(--space-3);
+}
+
+/* ── Abandon type-to-confirm overlay ────────────────────────── */
+.abandon-type-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.82);
+}
+.abandon-type-overlay.hidden { display: none !important; }
+
+.abandon-type-card {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  max-width: 360px;
+  width: 100%;
+}
+.abandon-type-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-error);
+  margin-bottom: var(--space-4);
+}
+.abandon-type-body {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-4);
+  max-width: 100%;
+}
+.abandon-type-input {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-offset);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-4);
+  outline: none;
+}
+.abandon-type-input:focus {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 2px var(--color-error-dim);
+}
+.abandon-type-btns {
+  display: flex;
+  gap: var(--space-3);
+}
+.abandon-type-btns .btn-abandon-confirm:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ── FIX #68 — Status column (7th) in batting scorecard ─────── */
+.score-table th:last-child,
+.score-table td:last-child {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ── FIX #69 — NB / Wd columns in bowling scorecard ─────────── */
+#score-bowling-tbody td:nth-child(6),
+#score-bowling-tbody td:nth-child(7) {
+  font-size: var(--text-xs);
+  text-align: center;
+  color: var(--color-text-muted);
+}

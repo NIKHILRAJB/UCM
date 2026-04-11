@@ -1,0 +1,240 @@
+/* ============================================================
+   UCM — BASE.CSS  (fixed)
+   FIX #21: --color-info, --color-info-dim
+   FIX #22: --color-primary-dim
+   FIX #23: --color-border-strong
+   FIX #24: --color-ball-dot variants
+   FIX #25: --color-error-dim
+   FIX #26: --radius-2xl
+   FIX #27: --z-scrim, --z-sheet, --z-overlay, --z-toast
+   FIX #28: --header-height, --tab-bar-height, --match-max-width
+   FIX #29: --transition-fast, --transition-smooth
+   ============================================================ */
+
+:root {
+  /* ── Surfaces ── */
+  --color-bg:               #0e0900;
+  --color-surface:          #150e00;
+  --color-surface-2:        #211400;
+  --color-surface-offset:   #271800;
+  --color-surface-offset-2: #2e1d00;
+  --color-surface-dynamic:  #3a2500;
+
+  /* ── Borders ── */
+  --color-divider:          rgba(255,255,255,0.06);
+  --color-border:           rgba(255,255,255,0.07);
+  --color-border-strong:    rgba(255,255,255,0.15);   /* FIX #23 */
+
+  /* ── Text ── */
+  --color-text:             #f0e8d8;
+  --color-text-muted:       #8a7060;
+  --color-text-faint:       #4a3828;
+  --color-text-inverse:     #130800;
+
+  /* ── Primary (Gold) ── */
+  --color-primary:          #F5A623;
+  --color-primary-hover:    #e09010;
+  --color-primary-active:   #c47a00;
+  --color-primary-dim:      rgba(245,166,35,0.15);    /* FIX #22 */
+  --color-primary-highlight:rgba(245,166,35,0.10);
+
+  /* ── Error ── */
+  --color-error:            #E05252;
+  --color-error-hover:      #c43e3e;
+  --color-error-active:     #a82c2c;
+  --color-error-dim:        rgba(224,82,82,0.18);     /* FIX #25 */
+  --color-error-highlight:  rgba(224,82,82,0.10);
+
+  /* ── Warning ── */
+  --color-warning:          #d97706;
+  --color-warning-hover:    #b45309;
+  --color-warning-dim:      rgba(217,119,6,0.18);
+
+  /* ── Success ── */
+  --color-success:          #4ade80;
+  --color-success-hover:    #22c55e;
+  --color-success-dim:      rgba(74,222,128,0.15);
+
+  /* ── Info — FIX #21 ── */
+  --color-info:             #4A9EFF;
+  --color-info-hover:       #2e88f0;
+  --color-info-active:      #1a72dc;
+  --color-info-dim:         rgba(74,158,255,0.18);
+
+  /* ── Ball dot colours — FIX #24 ── */
+  --color-ball-dot:         rgba(255,255,255,0.08);
+  --color-ball-dot-filled:  rgba(255,255,255,0.14);
+  --color-ball-dot-empty:   rgba(255,255,255,0.04);
+
+  /* ── Outcome tints ── */
+  --color-four:             #4A9EFF;
+  --color-four-dim:         rgba(74,158,255,0.15);
+  --color-six:              #F5A623;
+  --color-six-dim:          rgba(245,166,35,0.20);
+  --color-wicket:           #E05252;
+  --color-wicket-dim:       rgba(224,82,82,0.20);
+  --color-extra:            #facc15;
+  --color-extra-dim:        rgba(250,204,21,0.15);
+  --color-freehit:          #4ade80;
+  --color-freehit-dim:      rgba(74,222,128,0.20);
+  --color-notification:     #ff6b6b;
+  --color-striker-glow:     rgba(245,166,35,0.35);
+
+  /* ── Commentary row tints ── */
+  --color-comm-wicket:  rgba(224,82,82,0.15);
+  --color-comm-six:     rgba(245,166,35,0.20);
+  --color-comm-four:    rgba(74,158,255,0.15);
+  --color-comm-extra:   rgba(250,204,21,0.15);
+  --color-comm-freehit: rgba(74,222,128,0.18);
+
+  /* ── Type scale ── */
+  --text-xs:    clamp(0.75rem,  0.7rem  + 0.25vw, 0.875rem);
+  --text-sm:    clamp(0.875rem, 0.8rem  + 0.35vw, 1rem);
+  --text-base:  clamp(1rem,     0.95rem + 0.25vw, 1.125rem);
+  --text-lg:    clamp(1.125rem, 1rem    + 0.75vw, 1.5rem);
+  --text-xl:    clamp(1.5rem,   1.2rem  + 1.25vw, 2.25rem);
+  --text-2xl:   clamp(2rem,     1.2rem  + 2.5vw,  3.5rem);
+  --text-score: clamp(3rem,     2rem    + 4vw,    5.5rem);
+
+  /* ── 4px spacing ── */
+  --space-1:  0.25rem;
+  --space-2:  0.5rem;
+  --space-3:  0.75rem;
+  --space-4:  1rem;
+  --space-5:  1.25rem;
+  --space-6:  1.5rem;
+  --space-8:  2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+
+  /* ── Border radius ── */
+  --radius-sm:   0.25rem;
+  --radius-md:   0.5rem;
+  --radius-lg:   0.75rem;
+  --radius-xl:   1rem;
+  --radius-2xl:  1.5rem;     /* FIX #26 */
+  --radius-full: 9999px;
+
+  /* ── Z-index scale — FIX #27 ── */
+  --z-scrim:   100;
+  --z-sheet:   200;
+  --z-overlay: 300;
+  --z-toast:   400;
+
+  /* ── Layout dimensions — FIX #28 ── */
+  --header-height:   48px;
+  --tab-bar-height:  56px;
+  --match-max-width: 480px;
+
+  /* ── Transitions — FIX #29 ── */
+  --transition-fast:        140ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-smooth:      260ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-interactive: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ── Shadows ── */
+  --shadow-sm: 0 1px 3px  rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.6);
+
+  /* ── Fonts ── */
+  --font-display: 'Rajdhani', 'Arial Narrow', sans-serif;
+  --font-body:    'Inter', system-ui, sans-serif;
+}
+
+/* ── Reset ────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--space-16);
+}
+
+body {
+  min-height: 100dvh;
+  line-height: 1.6;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  overflow-x: hidden;
+}
+
+img, picture, video, canvas, svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+input, button, textarea, select { font: inherit; color: inherit; }
+button  { cursor: pointer; background: none; border: none; }
+table   { border-collapse: collapse; width: 100%; }
+
+h1, h2, h3, h4, h5, h6 { text-wrap: balance;  line-height: 1.15; }
+p, li, figcaption       { text-wrap: pretty;   max-width: 72ch; }
+
+::selection {
+  background: rgba(245, 166, 35, 0.25);
+  color: var(--color-text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+a, button, [role="button"], [role="link"], input, textarea, select {
+  transition:
+    color            var(--transition-interactive),
+    background       var(--transition-interactive),
+    border-color     var(--transition-interactive),
+    box-shadow       var(--transition-interactive);
+}
+
+/* ── Utilities ────────────────────────────────────────────── */
+.hidden { display: none !important; }
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* FIX #82: visible on focus for skip link */
+.sr-only--focusable:focus {
+  position: static;
+  width: auto; height: auto;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  z-index: var(--z-toast);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration:       0.01ms !important;
+    animation-iteration-count: 1     !important;
+    transition-duration:      0.01ms !important;
+    scroll-behavior:          auto   !important;
+  }
+}
